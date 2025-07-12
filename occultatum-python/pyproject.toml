@@ -1,10 +1,9 @@
 [project]
-name = "occultatum-assets"
+name = "occultatum"
 version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.11"
-dependencies = []
 
 [dependency-groups]
 dev = [
@@ -17,3 +16,8 @@ build-backend = "hatchling.build"
 
 [tool.hatch.build]
 dev-mode-dirs = ["components", "bases", "development", "."]
+
+[tool.uv.workspace]
+members = [
+    "development",
+]
