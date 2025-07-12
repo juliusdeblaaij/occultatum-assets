@@ -66,3 +66,32 @@ def remove_background(image_data: bytes):
     image_data_no_bg = rembg.remove(image_data, force_return_bytes=True)
 
     return image_data_no_bg
+
+def keep_large_blobs_only(image_data: bytes, min_blob_area=200):
+    """
+    Keeps only pixels that are part of a blob with at least `min_blob_area` pixels.
+    All other pixels are set to fully transparent.
+    """
+    img = Image.open(io.BytesIO(image_data)).convert("RGBA")
+    img_np = np.array(img)
+
+    # Create a mask of non-transparent pixels
+    alpha = img_np[:, :, 3]
+    mask = (alpha > 0).astype(np.uint8) * 255
+
+    # Find connected components (blobs)
+    num_labels, labels, stats, _ = cv2.connectedComponentsWithStats(mask, 4, cv2.CV_32S)
+
+    # Create a mask to keep only large blobs
+    keep_mask = np.zeros_like(mask)
+    for i in range(1, num_labels):  # 0 is background
+        if stats[i, cv2.CC_STAT_AREA] >= min_blob_area:
+            keep_mask[labels == i] = 255
+
+    # Set pixels not in large blobs to fully transparent
+    img_np[keep_mask == 0, 3] = 0
+
+    result_img = Image.fromarray(img_np)
+    output = io.BytesIO()
+    result_img.save(output, format='PNG')
+    return output.getvalue()
