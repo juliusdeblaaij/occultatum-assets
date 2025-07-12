@@ -5,11 +5,19 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
+    "einops==0.7.0",
+    "huggingface-hub>=0.17.3",
     "numpy==2.0.0",
+    "omegaconf==2.3.0",
     "onnxruntime>=1.22.1",
     "opencv-contrib-python>=4.12.0.88",
     "pillow>=11.3.0",
+    "pymcubes>=0.1.6",
     "rembg>=2.0.67",
+    "torch>=2.7.1",
+    "torchvision>=0.22.1",
+    "transformers==4.35.0",
+    "trimesh==4.7.0",
 ]
 
 [dependency-groups]
@@ -38,3 +46,19 @@ include = ["components", "bases"]
 "components/occultatum/artifact_to_3d" = "occultatum/artifact_to_3d"
 "components/occultatum/crop_image_to_foreground" = "occultatum/crop_image_to_foreground"
 "components/occultatum/isolate_artifact" = "occultatum/isolate_artifact"
+"components/occultatum/image_to_glb" = "occultatum/image_to_glb"
+"components/occultatum/triposr_model" = "occultatum/triposr_model"
+"components/occultatum/tsr" = "occultatum/tsr"
+
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
+
+[tool.uv.sources]
+torch = [
+  { index = "pytorch-cpu" },
+]
+torchvision = [
+  { index = "pytorch-cpu" },
+]

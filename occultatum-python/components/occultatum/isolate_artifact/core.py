@@ -67,10 +67,14 @@ def remove_background(image_data: bytes):
 
     return image_data_no_bg
 
-def keep_large_blobs_only(image_data: bytes, min_blob_area=200):
+def keep_large_blobs_only(image_data: bytes, min_blob_area_percent=1.0):
     """
-    Keeps only pixels that are part of a blob with at least `min_blob_area` pixels.
+    Keeps only pixels that are part of a blob with at least `min_blob_area_percent` percent of the image area.
     All other pixels are set to fully transparent.
+
+    Args:
+        image_data (bytes): PNG or JPEG image data.
+        min_blob_area_percent (float): Minimum blob area as a percentage of the image area (0-100).
     """
     img = Image.open(io.BytesIO(image_data)).convert("RGBA")
     img_np = np.array(img)
@@ -81,6 +85,10 @@ def keep_large_blobs_only(image_data: bytes, min_blob_area=200):
 
     # Find connected components (blobs)
     num_labels, labels, stats, _ = cv2.connectedComponentsWithStats(mask, 4, cv2.CV_32S)
+
+    # Calculate minimum area in pixels based on percentage
+    img_area = img_np.shape[0] * img_np.shape[1]
+    min_blob_area = int((min_blob_area_percent / 100.0) * img_area)
 
     # Create a mask to keep only large blobs
     keep_mask = np.zeros_like(mask)
