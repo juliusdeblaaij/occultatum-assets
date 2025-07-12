@@ -1,5 +1,3 @@
 from occultatum.artifact_to_3d_cli import core
 
-
-def test_sample():
-    assert core is not None
+__all__ = ["core"]

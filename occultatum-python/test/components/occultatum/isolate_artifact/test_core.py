@@ -1,4 +1,4 @@
-from occultatum.artifact_to_3d_cli import core
+from occultatum.isolate_artifact import core
 
 
 def test_sample():
