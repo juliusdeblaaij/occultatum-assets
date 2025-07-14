@@ -1,18 +1,20 @@
-def artifact_to_3d_cli(artifact_image_data: bytes, model_data: bytes) -> None:
-    """
-    Convert an artifact to a 3D model and save it to the specified output path.
-    
-    Args:
-        artifact_image_data (bytes): JPEG or PNG image data.
-        model_data (bytes): 3D model data (default in GLB format).
-    """
-    pass
+
+
+
 
 from PIL import Image
 import numpy as np
 #from TripoSR.tsr.utils import remove_background
 import cv2
 
+def artifact_to_3d(artifact_image_data: bytes) -> bytes:
+    """
+    Convert an artifact to a 3D model (GLB format).
+    Args:
+        artifact_image_data (bytes): JPEG or PNG image data.
+        model_data (bytes): 3D model data (default in GLB format).
+    """
+    
 
 
 def remove_background(image, black_threshold=20, white_threshold=230, dilation_kernel_size=15, min_blob_area=200):

@@ -1,3 +1,3 @@
-from occultatum.crop_image_to_foreground import core
+from occultatum.crop_image_to_foreground.core import crop_image_to_foreground
 
-__all__ = ["core"]
+__all__ = ["crop_image_to_foreground"]

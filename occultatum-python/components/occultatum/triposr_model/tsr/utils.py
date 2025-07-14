@@ -22,7 +22,7 @@ def parse_structured(fields: Any, cfg: Optional[Union[dict, DictConfig]] = None)
 
 
 def find_class(cls_string):
-    cls_string = cls_string.replace("tsr.", "components.occultatum.tsr.")
+    cls_string = cls_string.replace("tsr.", "components.occultatum.triposr_model.tsr.")
     module_string = ".".join(cls_string.split(".")[:-1])
     cls_name = cls_string.split(".")[-1]
     module = importlib.import_module(module_string, package=None)

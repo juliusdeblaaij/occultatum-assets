@@ -3,6 +3,23 @@ import cv2
 import numpy as np
 import rembg
 import io
+from occultatum.crop_image_to_foreground import crop_image_to_foreground
+
+def isolate_artifact(image_data: bytes) -> bytes:
+    data = remove_background(image_data)
+
+    data = remove_measurement_bar(data, 
+        black_threshold=30, 
+        white_threshold=235, 
+        dilation_kernel_size=15, 
+        min_blob_area=1000)
+    
+    data = keep_large_blobs_only(data, min_blob_area_percent=2.0)
+
+    data = crop_image_to_foreground(data)
+
+    return data
+
 
 def remove_measurement_bar(image_data: bytes, black_threshold=10, white_threshold=235, dilation_kernel_size=15, min_blob_area=200):
     """

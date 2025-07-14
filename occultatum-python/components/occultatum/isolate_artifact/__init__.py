@@ -1,3 +1,3 @@
-from occultatum.isolate_artifact import core
+from occultatum.isolate_artifact.core import isolate_artifact
 
-__all__ = ["core"]
+__all__ = ["isolate_artifact"]
