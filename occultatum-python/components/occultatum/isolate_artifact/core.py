@@ -25,6 +25,7 @@ def remove_measurement_bar(image_data: bytes, black_threshold=10, white_threshol
     """
     Removes near-black and near-white areas by creating a mask, filtering out small blobs,
     dilating it, and then making the pixels under the mask transparent.
+    Only removes blobs that are not fully enclosed by "good" pixels (i.e., only removes blobs touching the image border).
     """
     img = Image.open(io.BytesIO(image_data)).convert("RGBA")
 
@@ -40,22 +41,26 @@ def remove_measurement_bar(image_data: bytes, black_threshold=10, white_threshol
     is_near_white = np.all(rgb > white_threshold, axis=-1)
     
     # Combine the conditions into a single mask.
-    # np.where assigns 255 (white) if the condition is true, 0 (black) otherwise.
     mask = np.where(is_near_black | is_near_white, 255, 0).astype(np.uint8)
 
     # Filter out small blobs.
-    # Find all connected components (blobs) in the mask.
     num_labels, labels, stats, centroids = cv2.connectedComponentsWithStats(mask, 4, cv2.CV_32S)
     
-    # Create a new mask to store only the large blobs.
+    # Create a new mask to store only the large blobs that touch the border.
     filtered_mask = np.zeros_like(mask)
-    
-    # Iterate through each component, starting from 1 (0 is the background).
+    h, w = mask.shape
+
     for i in range(1, num_labels):
-        # If the area of the component is greater than the minimum, add it to the new mask.
         if stats[i, cv2.CC_STAT_AREA] >= min_blob_area:
-            filtered_mask[labels == i] = 255
-    
+            # Get the bounding box of the blob
+            x, y, bw, bh, area = stats[i]
+            # Check if the blob touches the border
+            touches_border = (
+                x == 0 or y == 0 or (x + bw) == w or (y + bh) == h
+            )
+            if touches_border:
+                filtered_mask[labels == i] = 255
+
     # Create a kernel for dilation. A larger kernel size means more expansion.
     kernel = np.ones((dilation_kernel_size, dilation_kernel_size), np.uint8)
     
@@ -63,7 +68,6 @@ def remove_measurement_bar(image_data: bytes, black_threshold=10, white_threshol
     dilated_mask = cv2.dilate(filtered_mask, kernel, iterations=1)
     
     # Use the dilated mask to update the alpha channel of the original image.
-    # Where the mask is 255, set the alpha channel to 0 (fully transparent).
     img_np[dilated_mask == 255, 3] = 0
     
     # Filter pixels by alpha value. Keep only pixels with alpha > 245.
