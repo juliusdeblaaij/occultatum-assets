@@ -1,5 +1,5 @@
 from components.occultatum.crop_image_to_foreground.core import crop_image_to_foreground
-from components.occultatum.isolate_artifact.core import remove_background, remove_measurement_bar, keep_large_blobs_only
+from components.occultatum.isolate_artifact import isolate_artifact
 from PIL import Image
 import io
 import os
@@ -12,25 +12,5 @@ if __name__ == "__main__":
     data = in_file.read() # if you only wanted to read 512 bytes, do .read(512)
     in_file.close()
 
-    data = remove_background(data)
-
-    image = Image.open(io.BytesIO(data))
-    image.save('no_bg.png')
-
-    data = remove_measurement_bar(data, 
-        black_threshold=30, 
-        white_threshold=235, 
-        dilation_kernel_size=15, 
-        min_blob_area=1000)
     
-    image = Image.open(io.BytesIO(data))
-    image.save('no_bg_no_bar.png')
-
-    data = keep_large_blobs_only(data, min_blob_area_percent=2.0)
-    image = Image.open(io.BytesIO(data))
-    image.save('no_bg_no_bar_filtered_small_blobs.png')
-
-    data = crop_image_to_foreground(data)
-    image = Image.open(io.BytesIO(data))
-    image.save('no_bg_no_bar_filtered_small_blobs_cropped.png')
 

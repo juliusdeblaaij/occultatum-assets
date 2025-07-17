@@ -1,3 +1,3 @@
-from occultatum.artifact_to_3d import core
+from occultatum.artifact_to_3d.core import artifact_to_3d
 
 __all__ = ["artifact_to_3d"]

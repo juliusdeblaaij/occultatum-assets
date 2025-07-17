@@ -29,13 +29,13 @@ if __name__ == "__main__":
     # meshes[0].export("test.glb")
 
     #rel_path = "sherd_with_bar.jpg"
-    rel_path = "24-photo-20090231-profile.jpg"
-    abs_file_path = os.path.join(os.path.dirname(__file__), rel_path)
+    file_name = "24-19700107-2009-002jpg.jpg"
+    abs_file_path = os.path.join(os.path.dirname(__file__), file_name)
     in_file = open(abs_file_path, "rb") # opening for [r]eading as [b]inary
     data = in_file.read() # if you only wanted to read 512 bytes, do .read(512)
     in_file.close()
 
     model_data = image_to_glb(data)
 
-    with open("output.glb", "wb") as f:
+    with open(file_name + ".glb", "wb") as f:
         f.write(model_data)
