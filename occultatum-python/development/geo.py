@@ -7,6 +7,7 @@ import rasterio
 from rasterio.features import rasterize
 import matplotlib.pyplot as plt
 from matplotlib.patches import Patch
+import polars as pl
 
 # Load the data directly into a GeoDataFrame
 gdf = gpd.read_file("limes_paleogeography.json")
@@ -249,6 +250,75 @@ def save_legend(filename, soil_colors):
     plt.close(fig)
 
 save_legend("window_raster_legend.png", SOIL_COLORS)
+
+# Assign unique numbers to each layer
+ALL_LAYERS = [
+    "coversands",
+    "coversands (uncertain)",
+    "dunes and beach ridges",
+    "estuary",
+    "eutrophic peatlands",
+    "eutrophic peatlands (uncertain)",
+    "fluvial terraces",
+    "high Pleistocene sands",
+    "high floodplain",
+    "high natural levee",
+    "high natural levee (Vecht)",
+    "high natural levee (uncertain)",
+    "lakes",
+    "low floodplain",
+    "low floodplain (uncertain)",
+    "low natural levee",
+    "low natural levee (uncertain)",
+    "mesotrophic peatlands",
+    "mesotrophic peatlands (uncertain)",
+    "moderately high natural levee",
+    "moderately high natural levee (Vecht)",
+    "moderately high natural levee (uncertain)",
+    "obsolete",
+    "oligotrophic peatlands",
+    "oligotrophic peatlands (uncertain)",
+    "post-Roman erosion",
+    "residual gully",
+    "residual gully (Rhine)",
+    "residual gully (uncertain)",
+    "river dunes",
+    "rivers and streams",
+    "sea",
+    "tidal flats",
+    "tidal flats (uncertain)",
+]
+LAYER_TO_INT = {layer: i+1 for i, layer in enumerate(ALL_LAYERS)}
+
+# Rasterization at 1x1m resolution for the selected window
+out_shape_1m = (int(window_size), int(window_size))
+transform_1m = rasterio.transform.from_bounds(x0, y0, x1, y1, out_shape_1m[1], out_shape_1m[0])
+
+# Prepare shapes for rasterization with integer values
+shapes_1m = []
+for _, row in window_gdf.iterrows():
+    soil = row.get("element")
+    val = LAYER_TO_INT.get(soil, 0)
+    if val != 0:
+        shapes_1m.append((row.geometry, val))
+
+raster_1m = rasterize(
+    shapes_1m,
+    out_shape=out_shape_1m,
+    transform=transform_1m,
+    fill=0,
+    dtype="uint16"
+)
+
+# Convert raster to Polars DataFrame
+rows = []
+for y in range(out_shape_1m[0]):
+    for x in range(out_shape_1m[1]):
+        soil_type = raster_1m[y, x]
+        rows.append((x, y, soil_type))
+
+df = pl.DataFrame(rows, schema=["x", "y", "soil_type"])
+print(df)
 
 m.save("window_map.html")
 print("Map with random 10x10 hectare window saved as window_map.html")
