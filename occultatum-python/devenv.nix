@@ -9,6 +9,7 @@ let
     stdenv.cc.cc
     libuv
     zlib
+    expat
     libGL
     glib
     stdenv.cc.cc.lib
