@@ -89,6 +89,9 @@ SOIL_COLORS = {
     "river dunes": "#FFFF00",
     "tidal flats": "#448970",
     "tidal flats (uncertain)": "#448970",
+    "rivers and streams": "#BEE8FF",   # add this line
+    "lakes": "#BEE8FF",                # add this line if needed
+    "sea": "#BEE8FF",                  # add this line if needed
 }
 
 while attempt < max_attempts and not found:
@@ -98,13 +101,13 @@ while attempt < max_attempts and not found:
     y1 = y0 + window_size
 
     window_poly = box(x0, y0, x1, y1)
-    window_gdf = gdf[gdf.intersects(window_poly)].copy()  # <-- ensure a copy to avoid SettingWithCopyWarning
+    window_gdf = gdf[gdf.intersects(window_poly)].copy()
 
     # Extract soil types from the 'element' property
     if 'element' in window_gdf.columns:
         soil_types = window_gdf['element'].dropna().unique()
         valid_soil_types = [s for s in soil_types if s in VALID_SOILS]
-        # Area check for rivers/streams
+        # Area check for rivers/streams/water
         river_types = {
             "low floodplain",
             "low floodplain (uncertain)",
@@ -116,21 +119,34 @@ while attempt < max_attempts and not found:
             "sea",
             "dunes and beach ridges",
         }
-        window_gdf['area'] = window_gdf.geometry.area  # safe to assign now
+        window_gdf['area'] = window_gdf.geometry.area
         river_area = window_gdf[window_gdf['element'].isin(river_types)]['area'].sum()
         total_area = window_gdf['area'].sum()
         river_fraction = river_area / total_area if total_area > 0 else 0
-        if len(set(valid_soil_types)) >= 3 and river_fraction <= 0.5:
+        has_water = any(s in river_types for s in soil_types)
+        # Area fraction for each valid soil type
+        soil_area_fractions = []
+        for soil in set(valid_soil_types):
+            soil_area = window_gdf[window_gdf['element'] == soil]['area'].sum()
+            fraction = soil_area / total_area if total_area > 0 else 0
+            soil_area_fractions.append(fraction)
+        # Ensure at least 3 valid soils, <=50% water, at least one water type, and each soil >=10%
+        if (
+            len(set(valid_soil_types)) >= 3 and
+            river_fraction <= 0.5 and
+            has_water and
+            all(f >= 0.10 for f in soil_area_fractions)
+        ):
             found = True
     attempt += 1
 
 if not found:
     raise RuntimeError("Could not find a window with at least 3 soil types after {} attempts.".format(max_attempts))
 
-# Debug: print the unique layers present in the selected area
+# Debug: print all unique layers present in the selected area (not just soil layers)
 if 'element' in window_gdf.columns:
     present_layers = window_gdf['element'].dropna().unique()
-    print("Layers present in selected area:", present_layers)
+    print("All layers present in selected area:", present_layers)
 
 # Reproject everything to WGS84 for Folium
 gdf_wgs = gdf.to_crs(epsg=4326)
@@ -180,7 +196,13 @@ shapes = []
 values = []
 for _, row in window_gdf.iterrows():
     soil = row.get("element")
+    # Use blue for any water/stream type not in SOIL_COLORS
     color = SOIL_COLORS.get(soil)
+    if not color and soil in {
+        "rivers and streams", "streams", "stream", "water", "lake", "lakes", "sea"
+    }:
+        color = "#BEE8FF"
+        SOIL_COLORS[soil] = color  # ensure legend and mapping consistency
     if color:
         shapes.append((row.geometry, soil))
         values.append(soil)
