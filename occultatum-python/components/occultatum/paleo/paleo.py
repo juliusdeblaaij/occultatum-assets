@@ -180,11 +180,11 @@ def find_window(df, bounds, crs, window_size=1000, min_soil_types=3, min_water=0
         }, geometry="geometry", crs=crs)
         # Find intersections
         mask = gdf.intersects(window_poly)
-        window_gdf = gdf[mask]
+        window_gdf = gdf[mask].copy()  # Ensure this is a copy to avoid SettingWithCopyWarning
         if "element" in window_gdf.columns and len(window_gdf) > 0:
             soil_types = window_gdf["element"].unique().tolist()
             valid_soil_types = [s for s in soil_types if s in VALID_SOILS]
-            window_gdf["area"] = window_gdf.geometry.area
+            window_gdf.loc[:, "area"] = window_gdf.geometry.area
             river_area = window_gdf[window_gdf["element"].isin(list(RIVER_TYPES))]["area"].sum()
             total_area = window_gdf["area"].sum()
             river_fraction = river_area / total_area if total_area > 0 else 0
