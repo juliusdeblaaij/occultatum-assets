@@ -10,7 +10,10 @@ dependencies = [
     "fastapi[standard]>=0.116.1",
     "folium>=0.20.0",
     "geopandas>=1.1.1",
+    "geopolars>=0.1.0a4",
     "huggingface-hub>=0.17.3",
+    "ipython>=9.4.0",
+    "matplotlib>=3.10.3",
     "miniopy-async>=1.23.2",
     "numpy==2.0.0",
     "omegaconf==2.3.0",
@@ -21,6 +24,7 @@ dependencies = [
     "pymcubes>=0.1.6",
     "rasterio>=1.4.3",
     "rembg>=2.0.67",
+    "seaborn>=0.13.2",
     "torch>=2.7.1",
     "torchvision>=0.22.1",
     "transformers==4.35.0",
@@ -56,6 +60,10 @@ include = ["components", "bases"]
 "components/occultatum/image_to_glb" = "occultatum/image_to_glb"
 "components/occultatum/triposr_model" = "occultatum/triposr_model"
 "components/occultatum/tsr" = "occultatum/tsr"
+"bases/occultatum/artifact_to_3d_api" = "occultatum/artifact_to_3d_api"
+"components/occultatum/paleo" = "occultatum/paleo"
+"components/occultatum/simple_object_storage" = "occultatum/simple_object_storage"
+"components/occultatum/romfarms" = "occultatum/romfarms"
 
 [[tool.uv.index]]
 name = "pytorch-cpu"
