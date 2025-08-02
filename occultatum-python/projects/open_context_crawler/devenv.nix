@@ -46,14 +46,14 @@ in
         IF NOT EXISTS (
           SELECT FROM pg_catalog.pg_roles WHERE rolname = 'postgres'
         ) THEN
-          CREATE ROLE postgres WITH LOGIN SUPERUSER PASSWORD 'postgres';
+          CREATE ROLE postgres WITH LOGIN SUPERUSER PASSWORD '${POSTGRES_PASSWORD}';
         ELSE
-          ALTER ROLE postgres WITH SUPERUSER PASSWORD 'postgres';
+          ALTER ROLE postgres WITH SUPERUSER PASSWORD '${POSTGRES_PASSWORD}';
         END IF;
         IF NOT EXISTS (
           SELECT FROM pg_catalog.pg_roles WHERE rolname = 'oc_crawler'
         ) THEN
-          CREATE ROLE oc_crawler WITH LOGIN PASSWORD 'oc_crawler';
+          CREATE ROLE oc_crawler WITH LOGIN PASSWORD '${OC_CRAWLER_PASSWORD}';
         END IF;
       END
       $do$;
