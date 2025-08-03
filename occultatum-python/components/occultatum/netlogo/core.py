@@ -17,3 +17,6 @@ def command(command):
     if not command:
         raise ValueError("Command cannot be empty")
     _netlogo.command(command)
+
+def kill():
+    _netlogo.kill_workspace()

@@ -10,12 +10,20 @@ from rasterio.features import rasterize
 import matplotlib.pyplot as plt
 from matplotlib.patches import Patch
 import json
+import os
+import pandas as pd
 
-from occultatum.netlogo.core import load_model, command
+import pynetlogo
+jvm_path = os.path.join(os.environ["JAVA_HOME"], "lib", "server", "libjvm.so")
 
-load_model('/home/juliusdb/Documents/repos/occultatum-assets/occultatum_farms.nlogo')
+netlogo = pynetlogo.NetLogoLink(
+    gui=True,
+    jvm_path=jvm_path,
+)
 
-command('setup')
+netlogo.load_model('/home/juliusdb/Documents/repos/occultatum-assets/occultatum_farms.nlogo')
+
+netlogo.command('setup')
 
 with open("/home/juliusdb/Documents/repos/occultatum-assets/limes_paleogeography.json") as f:
     data = json.load(f)
@@ -43,9 +51,8 @@ if gdf.crs.to_epsg() == 4326:
 
 # Get the total bounds of the data (minx, miny, maxx, maxy)
 minx, miny, maxx, maxy = gdf.total_bounds
-print(gdf)
 
-hectare_side = 10  # meters
+hectare_side = 100  # meters
 window_size = 10 * hectare_side  # 1000 meters
 
 # Try to find a window with at least 3 soil types
@@ -236,7 +243,7 @@ soil_to_int = {soil: i+1 for i, soil in enumerate(SOIL_COLORS.keys())}
 int_to_rgb = {soil_to_int[soil]: hex_to_rgb(SOIL_COLORS[soil]) for soil in SOIL_COLORS}
 
 # Raster size and transform
-out_shape = (512, 512)
+out_shape = (10, 10)
 transform = rasterio.transform.from_bounds(x0, y0, x1, y1, out_shape[1], out_shape[0])
 
 # Rasterize to integer mask
@@ -248,33 +255,31 @@ raster = rasterize(
     dtype="uint8"
 )
 
-# Convert integer mask to RGB image
-rgb = np.zeros((out_shape[0], out_shape[1], 3), dtype=np.uint8)
-for val, color in int_to_rgb.items():
-    mask = raster == val
-    rgb[mask] = color
+# Build a DataFrame of soil type indices for NetLogo patch_set
+soil_type_df = pd.DataFrame(raster)
 
-# Save as PNG
-import imageio
-imageio.imwrite("window_raster.png", rgb)
+print(soil_type_df.head())
 
-# Create a toggleable legend as a separate PNG
-def save_legend(filename, soil_colors):
-    fig, ax = plt.subplots(figsize=(4, len(soil_colors) * 0.22 + 0.5))
-    handles = []
-    labels = []
-    for soil, hex_color in soil_colors.items():
-        handles.append(Patch(facecolor=hex_color, edgecolor='black'))
-        labels.append(soil)
-    ax.legend(handles, labels, loc='center left', frameon=True)
-    ax.axis('off')
-    plt.tight_layout()
-    plt.savefig(filename, bbox_inches='tight', transparent=True, dpi=150)
-    plt.close(fig)
+# Ensure NetLogo world matches the DataFrame shape
+nrows, ncols = soil_type_df.shape
+min_px = 0
+max_px = ncols - 1
+min_py = 0
+max_py = nrows - 1
+# Set NetLogo world size (patches)
+netlogo.command(f"resize-world {min_px} {max_px} {min_py} {max_py}")
+netlogo.command("clear-all")
 
-save_legend("window_raster_legend.png", SOIL_COLORS)
+try:
+    print(" try patch_set in NetLogo")
+    netlogo.patch_set("soil_type", soil_type_df)
+    print("netlogo.patch_set(\"soil_type\", soil_type_df)")
+except Exception as e:
+    print("Error setting patch_set in NetLogo:", e)
 
-m.save("window_map.html")
-print("Map with random 10x10 hectare window saved as window_map.html")
-print("Rasterized window saved as window_raster.png")
-print("Legend saved as window_raster_legend.png (toggle display in your viewer as needed)")
+print("patch_set finished")
+
+# Set pcolor for each patch based on soil_type index, using NetLogo's 'ifelse' syntax
+color_map = [16776958, 16776958, 15138816, 7577855, 14155790, 14155790, 11010048, 14146334, 9022054, 11141056, 11141056, 11141056, 10463938, 10463938, 11259078, 11259078, 13466662, 13466662, 13563354, 13563354, 13563354, 13466662, 13466662, 14869217, 16776960, 4471152, 4471152, 12487935, 12487935, 12487935]
+color_map_str = "[" + " ".join(str(c) for c in color_map) + "]"
+netlogo.command(f"let color_map {color_map_str} ask patches [ ifelse soil_type >= 0 and soil_type < length color_map [ set pcolor item soil_type color_map ] [ set pcolor gray ] ]")
