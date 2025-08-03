@@ -74,7 +74,6 @@ def rgb_to_netlogo_approx_color(r, g, b):
 WATER_TYPES = {
     "estuary": "#73DFFF",
     "tidal flats": "#448970",
-    "tidal flats (uncertain)": "#448970",
     "rivers and streams": "#BEE8FF",
     "lakes": "#BEE8FF",
     "sea": "#BEE8FF",
@@ -86,12 +85,9 @@ LEVEE_TYPES = {
     "high natural levee (uncertain)": "#AAFF00",
     "moderately high natural levee": "#CDF57A",
     "moderately high natural levee (Vecht)": "#CDF57A",
-    "moderately high natural levee (uncertain)": "#CDF57A",
     "low natural levee": "#ABCD66",
-    "low natural levee (uncertain)": "#ABCD66",
     "fluvial terraces": "#A8A800",
     "coversands": "#FFFFBE",
-    "coversands (uncertain)": "#FFFFBE",
     "high Pleistocene sands": "#D7C29E",
     "river dunes": "#FFFF00",
     "dunes and beach ridges": "#E6E600",
@@ -101,16 +97,12 @@ LEVEE_TYPES = {
 FLOOD_BASIN_TYPES = {
     "high floodplain": "#89CD66",
     "low floodplain": "#9ED7C2",
-    "low floodplain (uncertain)": "#9ED7C2",
 }
 
 PEATLANDS_TYPES = {
     "eutrophic peatlands": "#D79E9E",
-    "eutrophic peatlands (uncertain)": "#D79E9E",
     "mesotrophic peatlands": "#CD8966",
-    "mesotrophic peatlands (uncertain)": "#CD8966",
     "oligotrophic peatlands": "#CD6666",
-    "oligotrophic peatlands (uncertain)": "#CD6666",
 }
 
 # --- Build a single soil name to color dictionary ---
@@ -129,6 +121,12 @@ SOIL_TYPE_TO_INDEX = {name: i for i, name in enumerate(SOIL_TYPE_ORDER)}
 ALL_VALID_SOILS = set(SOIL_TYPE_ORDER)
 ALL_WATER_SOILS = set(WATER_TYPES.keys())
 
+# --- Normalize soil types: strip " (uncertain)" suffix for all uses below ---
+def normalize_soil_type(s):
+    if isinstance(s, str) and s.endswith(" (uncertain)"):
+        return s[:-len(" (uncertain)")]
+    return s
+
 while not found:
     x0 = random.uniform(minx, maxx - window_size)
     y0 = random.uniform(miny, maxy - window_size)
@@ -140,11 +138,13 @@ while not found:
 
     # Extract soil types from the 'element' property
     if 'element' in window_gdf.columns:
-        soil_types = window_gdf['element'].dropna().unique()
+        # Use normalized soil types for all logic
+        window_gdf['element_norm'] = window_gdf['element'].map(normalize_soil_type)
+        soil_types = window_gdf['element_norm'].dropna().unique()
         valid_soil_types = [s for s in soil_types if s in ALL_VALID_SOILS]
         river_types = ALL_WATER_SOILS
         window_gdf['area'] = window_gdf.geometry.area
-        river_area = window_gdf[window_gdf['element'].isin(river_types)]['area'].sum()
+        river_area = window_gdf[window_gdf['element_norm'].isin(river_types)]['area'].sum()
         total_area = window_gdf['area'].sum()
         river_fraction = river_area / total_area if total_area > 0 else 0
         has_water = any(s in river_types for s in soil_types)
@@ -152,8 +152,8 @@ while not found:
         # Rasterization for cell-based area check
         shapes = []
         for _, row in window_gdf.iterrows():
-            soil = row.get("element")
-            idx = SOIL_TYPE_TO_INDEX.get(soil)
+            soil_norm = row.get("element_norm")
+            idx = SOIL_TYPE_TO_INDEX.get(soil_norm)
             if idx is not None:
                 shapes.append((row.geometry, idx))
         out_shape = (10, 10)
@@ -168,7 +168,6 @@ while not found:
         # Compute cell-based fractions
         unique, counts = np.unique(raster, return_counts=True)
         cell_fractions = {idx: count / raster.size for idx, count in zip(unique, counts)}
-        # Only consider soil types present in this raster window
         present_soil_indexes = set(unique)
         # Check: at least 3 valid soils, <=50% water, at least one water type, and each present soil >=10%
         enough_soils = len(present_soil_indexes) >= 3
@@ -190,7 +189,9 @@ if not found:
 # Debug: print all unique layers present in the selected area (not just soil layers)
 if 'element' in window_gdf.columns:
     present_layers = window_gdf['element'].dropna().unique()
+    present_layers_norm = window_gdf['element_norm'].dropna().unique()
     print("All layers present in selected area:", present_layers)
+    print("All normalized layers present in selected area:", present_layers_norm)
 
 # Reproject everything to WGS84 for Folium
 gdf_wgs = gdf.to_crs(epsg=4326)
@@ -231,12 +232,12 @@ folium.GeoJson(
 ).add_to(m)
 
 # Rasterization of just the layers (not the base map)
-# Prepare shapes and values for rasterization
+# Prepare shapes and values for rasterization (use normalized soil names)
 shapes = []
 values = []
 for _, row in window_gdf.iterrows():
-    soil = row.get("element")
-    idx = SOIL_TYPE_TO_INDEX.get(soil)
+    soil_norm = row.get("element_norm")
+    idx = SOIL_TYPE_TO_INDEX.get(soil_norm)
     if idx is not None:
         shapes.append((row.geometry, idx))
         values.append(idx)
