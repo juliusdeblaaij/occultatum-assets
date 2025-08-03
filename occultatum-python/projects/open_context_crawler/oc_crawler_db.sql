@@ -54,7 +54,8 @@ grant select on api.oc_media to web_anon;
 grant select on api.oc_authors to web_anon;
 grant select on api.oc_authors_items to web_anon;
 
-create role authenticator noinherit login password 'mysecretpassword';
+-- Note: Replace ${AUTHENTICATOR_PASSWORD} with actual password when deploying
+create role authenticator noinherit login password '${AUTHENTICATOR_PASSWORD}';
 grant web_anon to authenticator;
 
 create role crawler_user nologin;

@@ -1,12 +1,16 @@
+
 from miniopy_async import Minio
 from io import BytesIO
-from datetime import timedelta
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
 
 client = Minio(
-    endpoint="127.0.0.1:9002",
-    access_key="minioadmin",
-    secret_key="minioadmin",
-    secure=False  # Use HTTP instead of HTTPS
+    endpoint=os.getenv("MINIO_ENDPOINT", "127.0.0.1:9000"),
+    access_key=os.getenv("MINIO_ACCESS_KEY"),
+    secret_key=os.getenv("MINIO_SECRET_KEY"),
+    secure=os.getenv("MINIO_SECURE", "false").lower() == "true"
 )
 
 async def put_object(bucket_name: str, object_name: str, file_contents: bytes, content_type: str = "application/octet-stream"):

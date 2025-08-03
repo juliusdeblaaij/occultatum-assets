@@ -6,3 +6,33 @@
 =*
 __pycache__/
 __pycache__
+
+# Environment variables
+.env
+.env.**
+
+# Configuration files with secrets
+config/secrets.json
+appsettings.Production.json
+
+# API keys and credentials
+**/keys/
+**/secrets/
+credentials.json
+
+# Database files
+*.db
+*.sqlite
+
+# Logs that might contain sensitive data
+logs/
+*.log
+process-compose.logs
+
+# IDE and editor files
+.vscode/settings.json
+.idea/
+
+# Development files
+development/
+!development/**.py
