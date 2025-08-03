@@ -27,7 +27,7 @@ def initialize_model(device: str = 'cpu'):
 
     return _model
 
-def image_to_3d(image_data: bytes, format: Format) -> bytes:    
+def image_to_3d(image_data: bytes, format: Format, mesh_resolution=256) -> bytes:    
 
     image = Image.open(io.BytesIO(image_data))
 
@@ -38,7 +38,7 @@ def image_to_3d(image_data: bytes, format: Format) -> bytes:
     with torch.no_grad():
         scene_codes = _model([image], device=_device)
     
-    meshes = _model.extract_mesh(scene_codes, True, resolution=256)
+    meshes = _model.extract_mesh(scene_codes, True, mesh_resolution)
 
     if format == Format.OBJ.value:
         from trimesh.exchange.obj import export_obj

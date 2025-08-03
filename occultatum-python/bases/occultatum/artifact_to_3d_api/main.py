@@ -1,9 +1,8 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import RedirectResponse
 from components.occultatum.image_to_glb import image_to_glb
 from components.occultatum.simple_object_storage import put_object, get_presigned_url, get_object
 import httpx
-import datetime
 
 httpx_client = httpx.AsyncClient()
 
@@ -14,8 +13,19 @@ app = FastAPI()
 @app.get("/artifact")
 async def create_artifact(
     artifact_id: str,
-    image_url: str
+    image_url: str,
+    request: Request,
+    mesh_resolution: int = 256
 ):
+    model_object_name = f"{artifact_id}/model@{mesh_resolution}.glb"
+    model_file = await get_object(bucket_name, model_object_name)
+
+    model_url = f"{request.url.scheme}://{request.url.hostname}:9000/{bucket_name}/{model_object_name}"
+    response = RedirectResponse(url=model_url, status_code=303)
+
+    if model_file:
+        return response
+
     image_file_name = image_url.split("/")[-1]
 
     image_data = await get_object(bucket_name, f"{artifact_id}/{image_file_name}")
@@ -33,17 +43,8 @@ async def create_artifact(
 
         await put_object(bucket_name, f"{artifact_id}/{image_file_name}", image_data, content_type=response.headers["Content-Type"])
 
-
-    model_object_name = f"{artifact_id}/model.glb"
-    model_file = await get_object(bucket_name, model_object_name)
-
     if not model_file:
-        model_data = image_to_glb(image_data)
+        model_data = image_to_glb(image_data, mesh_resolution)
         await put_object(bucket_name, model_object_name, model_data, content_type="model/gltf-binary")
 
-    # Set expiry to e.g. 3600 seconds (1 hour)
-    expires = datetime.timedelta(seconds=3600)
-    presigned_url = await get_presigned_url("GET", bucket_name, model_object_name, expires=expires)
-
-    response = RedirectResponse(url=presigned_url, status_code=303)
     return response

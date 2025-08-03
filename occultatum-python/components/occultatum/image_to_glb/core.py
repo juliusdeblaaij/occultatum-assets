@@ -5,11 +5,12 @@ import numpy as np
 from components.occultatum.triposr_model import initialize_model, image_to_3d
 from components.occultatum.isolate_artifact import isolate_artifact
 
-def image_to_glb(image_data: bytes):
+initialize_model()
+
+def image_to_glb(image_data: bytes, mesh_resolution: int = 256) -> bytes:
 
     image_data = isolate_artifact(image_data)
 
-    initialize_model()
-    return image_to_3d(image_data, 'glb')
+    return image_to_3d(image_data, 'glb', mesh_resolution)
 
     
