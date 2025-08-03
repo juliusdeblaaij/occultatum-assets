@@ -1,6 +1,47 @@
+extensions [table]
+
+breed [farmers farmer]
+
+farmers-own [
+  median_soil_type
+]
+
+patches-own [
+  soil_type
+]
+
+globals [
+  soil-colors-table ; table mapping soil_type index to NetLogo color integer
+]
+
 to setup
   clear-all
   reset-ticks
+  set soil-colors-table table:make
+  ask patches [ set soil_type -1 set pcolor gray ]
+end
+
+to spawn
+  ; This procedure can be used to spawn farmers or other agents
+  create-farmers 10 [
+    set color green
+    set size 1.5
+    setxy random-pxcor random-pycor
+  ]
+
+  ask farmers [
+    set median_soil_type (median [soil_type] of patches in-radius 2)
+  ]
+end
+
+to color-patches-from-table
+  ask patches [
+    ifelse table:has-key? soil-colors-table soil_type [
+      set pcolor table:get soil-colors-table soil_type
+    ] [
+      set pcolor gray
+    ]
+  ]
 end
 @#$#@#$#@
 GRAPHICS-WINDOW
@@ -108,10 +149,7 @@ Polygon -7500403 true true 150 165 209 199 225 225 225 255 195 270 165 255 150 2
 Polygon -7500403 true true 150 165 89 198 75 225 75 255 105 270 135 255 150 240
 Polygon -7500403 true true 139 148 100 105 55 90 25 90 10 105 10 135 25 180 40 195 85 194 139 163
 Polygon -7500403 true true 162 150 200 105 245 90 275 90 290 105 290 135 275 180 260 195 215 195 162 165
-Polygon -16777216 true false 150 255 135 225 120 150 135 120 150 105 165 120 180 150 165 225
-Circle -16777216 true false 135 90 30
-Line -16777216 false 150 105 195 60
-Line -16777216 false 150 105 105 60
+Polygon -16777216 true false 150 255 135 225 120 150 135 120 150 105 165 120 180 150 165 225 192 218 210 203 227 181 251 194 236 217 212 240
 
 car
 false

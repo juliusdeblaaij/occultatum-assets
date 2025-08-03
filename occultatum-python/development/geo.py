@@ -13,18 +13,6 @@ import json
 import os
 import pandas as pd
 
-import pynetlogo
-jvm_path = os.path.join(os.environ["JAVA_HOME"], "lib", "server", "libjvm.so")
-
-netlogo = pynetlogo.NetLogoLink(
-    gui=True,
-    jvm_path=jvm_path,
-)
-
-netlogo.load_model('/home/juliusdb/Documents/repos/occultatum-assets/occultatum_farms.nlogo')
-
-netlogo.command('setup')
-
 with open("/home/juliusdb/Documents/repos/occultatum-assets/limes_paleogeography.json") as f:
     data = json.load(f)
 gdf = gpd.GeoDataFrame.from_features(data)
@@ -60,72 +48,88 @@ max_attempts = 1000
 attempt = 0
 found = False
 
-# List of valid soils
-VALID_SOILS = {
-    "coversands",
-    "coversands (uncertain)",
-    "dunes and beach ridges",
-    "estuary",
-    "eutrophic peatlands",
-    "eutrophic peatlands (uncertain)",
-    "fluvial terraces",
-    "high Pleistocene sands",
-    "high floodplain",
-    "high natural levee",
-    "high natural levee (Vecht)",
-    "high natural levee (uncertain)",
-    "low floodplain",
-    "low floodplain (uncertain)",
-    "low natural levee",
-    "low natural levee (uncertain)",
-    "mesotrophic peatlands",
-    "mesotrophic peatlands (uncertain)",
-    "moderately high natural levee",
-    "moderately high natural levee (Vecht)",
-    "moderately high natural levee (uncertain)",
-    "oligotrophic peatlands",
-    "oligotrophic peatlands (uncertain)",
-    "post-Roman erosion",
-    "river dunes",
-    "tidal flats",
-    "tidal flats (uncertain)",
+def hex_to_rgb(hex_color):
+    """Convert hex color string to (r, g, b) tuple (0-255)."""
+    hex_color = hex_color.lstrip("#")
+    if len(hex_color) == 3:
+        # Expand short form like "F00" -> "FF0000"
+        hex_color = ''.join([c*2 for c in hex_color])
+    return tuple(int(hex_color[i:i+2], 16) for i in (0, 2, 4))
+
+def rgb_to_netlogo_approx_color(r, g, b):
+    """
+    Approximate NetLogo color number from RGB.
+    NetLogo's approximate-rgb maps (r,g,b) in 0-255 to a color number.
+    See: https://github.com/NetLogo/NetLogo/blob/6.4.0/netlogo-gui/src/main/agent/AgentColor.java
+    """
+    # NetLogo's base colors (see NetLogo User Manual)
+    # We'll use the formula: color = 5 * (r/255) + 5 * (g/255) * 10 + 5 * (b/255) * 100
+    # But NetLogo's color numbers are not a simple mapping, so we use the closest patch color
+    # Instead, use NetLogo's rgb primitive: rgb r g b, but for patch color tables, use the int
+    # For best compatibility, just use rgb(r, g, b) in NetLogo (see gis_test.nlogo)
+    # Here, return a tuple for NetLogo's rgb primitive
+    return (r, g, b)
+
+# 1. Categorize soil types by landscape function (see dissertation, ch. 4.3.2)
+WATER_TYPES = {
+    "estuary": "#73DFFF",
+    "tidal flats": "#448970",
+    "tidal flats (uncertain)": "#448970",
+    "rivers and streams": "#BEE8FF",
+    "lakes": "#BEE8FF",
+    "sea": "#BEE8FF",
 }
 
-# Color mapping for rasterization (hex to RGB)
-SOIL_COLORS = {
-    "coversands": "#FFFFBE",
-    "coversands (uncertain)": "#FFFFBE",
-    "dunes and beach ridges": "#E6E600",
-    "estuary": "#73DFFF",
-    "eutrophic peatlands": "#D79E9E",
-    "eutrophic peatlands (uncertain)": "#D79E9E",
-    "fluvial terraces": "#A8A800",
-    "high Pleistocene sands": "#D7C29E",
-    "high floodplain": "#89CD66",
+LEVEE_TYPES = {
     "high natural levee": "#AAFF00",
     "high natural levee (Vecht)": "#AAFF00",
     "high natural levee (uncertain)": "#AAFF00",
-    "low floodplain": "#9ED7C2",
-    "low floodplain (uncertain)": "#9ED7C2",
-    "low natural levee": "#ABCD66",
-    "low natural levee (uncertain)": "#ABCD66",
-    "mesotrophic peatlands": "#CD8966",
-    "mesotrophic peatlands (uncertain)": "#CD8966",
     "moderately high natural levee": "#CDF57A",
     "moderately high natural levee (Vecht)": "#CDF57A",
     "moderately high natural levee (uncertain)": "#CDF57A",
-    "oligotrophic peatlands": "#CD6666",
-    "oligotrophic peatlands (uncertain)": "#CD6666",
-    "post-Roman erosion": "#E1E1E1",
+    "low natural levee": "#ABCD66",
+    "low natural levee (uncertain)": "#ABCD66",
+    "fluvial terraces": "#A8A800",
+    "coversands": "#FFFFBE",
+    "coversands (uncertain)": "#FFFFBE",
+    "high Pleistocene sands": "#D7C29E",
     "river dunes": "#FFFF00",
-    "tidal flats": "#448970",
-    "tidal flats (uncertain)": "#448970",
-    "rivers and streams": "#BEE8FF",   # add this line
-    "lakes": "#BEE8FF",                # add this line if needed
-    "sea": "#BEE8FF",                  # add this line if needed
+    "dunes and beach ridges": "#E6E600",
+    "post-Roman erosion": "#E1E1E1",
 }
 
-while attempt < max_attempts and not found:
+FLOOD_BASIN_TYPES = {
+    "high floodplain": "#89CD66",
+    "low floodplain": "#9ED7C2",
+    "low floodplain (uncertain)": "#9ED7C2",
+}
+
+PEATLANDS_TYPES = {
+    "eutrophic peatlands": "#D79E9E",
+    "eutrophic peatlands (uncertain)": "#D79E9E",
+    "mesotrophic peatlands": "#CD8966",
+    "mesotrophic peatlands (uncertain)": "#CD8966",
+    "oligotrophic peatlands": "#CD6666",
+    "oligotrophic peatlands (uncertain)": "#CD6666",
+}
+
+# --- Build a single soil name to color dictionary ---
+soil_names_to_colors = {}
+soil_names_to_colors.update(WATER_TYPES)
+soil_names_to_colors.update(LEVEE_TYPES)
+soil_names_to_colors.update(FLOOD_BASIN_TYPES)
+soil_names_to_colors.update(PEATLANDS_TYPES)
+
+# 2. Build reference index for NetLogo (order: water, levee, flood basin, peatlands)
+SOIL_TYPE_ORDER = list(soil_names_to_colors.keys())
+SOIL_TYPE_COLORS = list(soil_names_to_colors.values())
+SOIL_TYPE_TO_INDEX = {name: i for i, name in enumerate(SOIL_TYPE_ORDER)}
+
+# --- NEW: Set of all valid soils and water types for filtering ---
+ALL_VALID_SOILS = set(SOIL_TYPE_ORDER)
+ALL_WATER_SOILS = set(WATER_TYPES.keys())
+
+while not found:
     x0 = random.uniform(minx, maxx - window_size)
     y0 = random.uniform(miny, maxy - window_size)
     x1 = x0 + window_size
@@ -137,19 +141,10 @@ while attempt < max_attempts and not found:
     # Extract soil types from the 'element' property
     if 'element' in window_gdf.columns:
         soil_types = window_gdf['element'].dropna().unique()
-        valid_soil_types = [s for s in soil_types if s in VALID_SOILS]
-        # Area check for rivers/streams/water
-        river_types = {
-            "low floodplain",
-            "low floodplain (uncertain)",
-            "estuary",
-            "tidal flats",
-            "tidal flats (uncertain)",
-            "rivers and streams",
-            "lakes",
-            "sea",
-            "dunes and beach ridges",
-        }
+        # Use new soil type groups for filtering
+        valid_soil_types = [s for s in soil_types if s in ALL_VALID_SOILS]
+        # Area check for water types using new group
+        river_types = ALL_WATER_SOILS
         window_gdf['area'] = window_gdf.geometry.area
         river_area = window_gdf[window_gdf['element'].isin(river_types)]['area'].sum()
         total_area = window_gdf['area'].sum()
@@ -162,6 +157,7 @@ while attempt < max_attempts and not found:
             fraction = soil_area / total_area if total_area > 0 else 0
             soil_area_fractions.append(fraction)
         # Ensure at least 3 valid soils, <=50% water, at least one water type, and each soil >=10%
+        
         if (
             len(set(valid_soil_types)) >= 3 and
             river_fraction <= 0.5 and
@@ -192,11 +188,11 @@ m = folium.Map(location=center, zoom_start=15)
 
 def style_function(feature):
     element = feature['properties'].get('element', '')
-    # Blue for rivers, lakes, streams, and other water
-    if element in {"estuary", "tidal flats", "tidal flats (uncertain)", "rivers and streams", "lakes"}:
+    # Blue for water types using new group
+    if element in WATER_TYPES:
         return {'color': '#BEE8FF', 'weight': 2, 'fillColor': '#BEE8FF', 'fillOpacity': 0.7}
     # Use color mapping for other soils
-    color = SOIL_COLORS.get(element, '#888888')
+    color = soil_names_to_colors.get(element, '#888888')
     return {'color': color, 'weight': 1, 'fillColor': color, 'fillOpacity': 0.7}
 
 folium.GeoJson(
@@ -218,29 +214,16 @@ folium.GeoJson(
 ).add_to(m)
 
 # Rasterization of just the layers (not the base map)
-def hex_to_rgb(hex_color):
-    hex_color = hex_color.lstrip("#")
-    return tuple(int(hex_color[i:i+2], 16) for i in (0, 2, 4))
-
 # Prepare shapes and values for rasterization
 shapes = []
 values = []
 for _, row in window_gdf.iterrows():
     soil = row.get("element")
-    # Use blue for any water/stream type not in SOIL_COLORS
-    color = SOIL_COLORS.get(soil)
-    if not color and soil in {
-        "rivers and streams", "streams", "stream", "water", "lake", "lakes", "sea"
-    }:
-        color = "#BEE8FF"
-        SOIL_COLORS[soil] = color  # ensure legend and mapping consistency
-    if color:
-        shapes.append((row.geometry, soil))
-        values.append(soil)
-
-# Assign an integer value to each soil type for the raster
-soil_to_int = {soil: i+1 for i, soil in enumerate(SOIL_COLORS.keys())}
-int_to_rgb = {soil_to_int[soil]: hex_to_rgb(SOIL_COLORS[soil]) for soil in SOIL_COLORS}
+    idx = SOIL_TYPE_TO_INDEX.get(soil)
+    if idx is not None:
+        shapes.append((row.geometry, idx))
+        values.append(idx)
+    # else: skip unknown types
 
 # Raster size and transform
 out_shape = (10, 10)
@@ -248,7 +231,7 @@ transform = rasterio.transform.from_bounds(x0, y0, x1, y1, out_shape[1], out_sha
 
 # Rasterize to integer mask
 raster = rasterize(
-    ((geom, soil_to_int.get(val, 0)) for geom, val in shapes),
+    ((geom, int(val)) for geom, val in shapes),
     out_shape=out_shape,
     transform=transform,
     fill=0,
@@ -258,7 +241,36 @@ raster = rasterize(
 # Build a DataFrame of soil type indices for NetLogo patch_set
 soil_type_df = pd.DataFrame(raster)
 
-print(soil_type_df.head())
+print(soil_type_df)
+
+# Print legend mapping present soil indexes to their soil names
+present_soil_indexes = set(np.unique(raster))
+legend = {idx: SOIL_TYPE_ORDER[idx] for idx in present_soil_indexes if idx < len(SOIL_TYPE_ORDER)}
+print("Soil index legend for selected window:")
+for idx, name in legend.items():
+    print(f"  {idx}: {name}")
+
+# Dynamically calculate NetLogo color (as rgb tuple) from hex for each soil type index
+soil_index_to_netlogo_color = {}
+for idx, soil_name in enumerate(SOIL_TYPE_ORDER):
+    hex_color = soil_names_to_colors[soil_name]
+    r, g, b = hex_to_rgb(hex_color)
+    netlogo_color = rgb_to_netlogo_approx_color(r, g, b)
+    soil_index_to_netlogo_color[idx] = netlogo_color
+
+
+import pynetlogo
+jvm_path = os.path.join(os.environ["JAVA_HOME"], "lib", "server", "libjvm.so")
+
+netlogo = pynetlogo.NetLogoLink(
+    gui=True,
+    jvm_path=jvm_path,
+)
+
+netlogo.load_model('/home/juliusdb/Documents/repos/occultatum-assets/occultatum_farms.nlogo')
+
+netlogo.command('setup')
+
 
 # Ensure NetLogo world matches the DataFrame shape
 nrows, ncols = soil_type_df.shape
@@ -279,10 +291,14 @@ except Exception as e:
 
 print("patch_set finished")
 
-# Set pcolor for each patch based on soil_type index, using NetLogo's 'ifelse' syntax
-color_map = [16776958, 16776958, 15138816, 7577855, 14155790, 14155790, 11010048, 14146334, 9022054, 11141056, 11141056, 11141056, 10463938, 10463938, 11259078, 11259078, 13466662, 13466662, 13563354, 13563354, 13563354, 13466662, 13466662, 14869217, 16776960, 4471152, 4471152, 12487935, 12487935, 12487935]
-color_map_str = "[" + " ".join(str(c) for c in color_map) + "]"
-netlogo.command(f"let color_map {color_map_str} ask patches [ ifelse soil_type >= 0 and soil_type < length color_map [ set pcolor item soil_type color_map ] [ set pcolor gray ] ]")
+# Populate NetLogo table: soil-colors-table
+netlogo.command("set soil-colors-table table:make")
+for idx, color_tuple in soil_index_to_netlogo_color.items():
+    # NetLogo expects a color number or rgb list; use rgb list for full color
+    netlogo.command(f"table:put soil-colors-table {idx} (list {color_tuple[0]} {color_tuple[1]} {color_tuple[2]})")
+
+# Color patches using the table (calls NetLogo procedure)
+netlogo.command("color-patches-from-table")
 
 print(" spawning farmers")
 netlogo.command("spawn")
