@@ -283,3 +283,6 @@ print("patch_set finished")
 color_map = [16776958, 16776958, 15138816, 7577855, 14155790, 14155790, 11010048, 14146334, 9022054, 11141056, 11141056, 11141056, 10463938, 10463938, 11259078, 11259078, 13466662, 13466662, 13563354, 13563354, 13563354, 13466662, 13466662, 14869217, 16776960, 4471152, 4471152, 12487935, 12487935, 12487935]
 color_map_str = "[" + " ".join(str(c) for c in color_map) + "]"
 netlogo.command(f"let color_map {color_map_str} ask patches [ ifelse soil_type >= 0 and soil_type < length color_map [ set pcolor item soil_type color_map ] [ set pcolor gray ] ]")
+
+print(" spawning farmers")
+netlogo.command("spawn")
