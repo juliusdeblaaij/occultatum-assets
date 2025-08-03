@@ -30,6 +30,7 @@ dependencies = [
     "torchvision>=0.22.1",
     "transformers==4.35.0",
     "trimesh==4.7.0",
+    "pynetlogo>=0.5.2",
 ]
 
 [dependency-groups]
@@ -65,6 +66,7 @@ include = ["components", "bases"]
 "components/occultatum/paleo" = "occultatum/paleo"
 "components/occultatum/simple_object_storage" = "occultatum/simple_object_storage"
 "components/occultatum/romfarms" = "occultatum/romfarms"
+"components/occultatum/netlogo" = "occultatum/netlogo"
 
 [[tool.uv.index]]
 name = "pytorch-cpu"

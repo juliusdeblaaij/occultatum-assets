@@ -1,0 +1,3 @@
+# netlogo component
+
+

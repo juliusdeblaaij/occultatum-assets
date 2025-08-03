@@ -1,3 +1,5 @@
+print(" hello world")
+
 import geopandas as gpd
 import folium
 import random
@@ -7,21 +9,43 @@ import rasterio
 from rasterio.features import rasterize
 import matplotlib.pyplot as plt
 from matplotlib.patches import Patch
+import json
 
-# Load the data directly into a GeoDataFrame
-gdf = gpd.read_file("limes_paleogeography.json")
+from occultatum.netlogo.core import load_model, command
+
+load_model('/home/juliusdb/Documents/repos/occultatum-assets/occultatum_farms.nlogo')
+
+command('setup')
+
+with open("/home/juliusdb/Documents/repos/occultatum-assets/limes_paleogeography.json") as f:
+    data = json.load(f)
+gdf = gpd.GeoDataFrame.from_features(data)
+print("Loaded GeoDataFrame with", len(gdf), "features")
+if gdf.empty:
+    print("WARNING: GeoDataFrame is empty. Check that 'limes_paleogeography.json' exists and contains valid features.")
+    # Optionally, print the file path and exit early for clarity
+    import os
+    print("Current working directory:", os.getcwd())
+    print("File exists:", os.path.exists("limes_paleogeography.json"))
+    # Optionally, exit to avoid further errors
+    import sys
+    sys.exit(1)
 
 # Ensure data is in a projected CRS (meters), reproject if needed
-if gdf.crs is None or gdf.crs.to_epsg() == 4326:
+if gdf.crs is None:
+    # Set the CRS to WGS84 (EPSG:4326) if you know that's correct for your data
+    gdf.set_crs(epsg=4326, inplace=True)
+
+if gdf.crs.to_epsg() == 4326:
     # You must know the correct projected CRS for your data!
     # Example: Amersfoort / RD New (EPSG:28992) for the Netherlands
     gdf = gdf.to_crs(epsg=28992)
 
 # Get the total bounds of the data (minx, miny, maxx, maxy)
 minx, miny, maxx, maxy = gdf.total_bounds
+print(gdf)
 
-# 1 hectare = 100m x 100m, so 10x10 hectares = 1000m x 1000m
-hectare_side = 100  # meters
+hectare_side = 10  # meters
 window_size = 10 * hectare_side  # 1000 meters
 
 # Try to find a window with at least 3 soil types

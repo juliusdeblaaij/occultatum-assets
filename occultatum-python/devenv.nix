@@ -13,6 +13,7 @@ let
     libGL
     glib
     stdenv.cc.cc.lib
+    openjdk
   ];
 in
 {
@@ -20,7 +21,9 @@ in
     cmake
     ninja
     clang
+    netlogo
     xorg.libX11
+    openjdk
   ] ++ nativeBuildInputs;
 
   env = {
@@ -47,6 +50,7 @@ in
   enterShell = ''
     source .devenv/state/venv/bin/activate
     export PYTHONPATH="$(echo $PYTHONPATH):$(pwd)/bases:$(pwd)/components:$(pwd)"
+    export NETLOGO_HOME="${pkgs.netlogo}"
     '';
 
   scripts.poly.exec = ''
