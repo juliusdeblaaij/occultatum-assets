@@ -141,28 +141,45 @@ while not found:
     # Extract soil types from the 'element' property
     if 'element' in window_gdf.columns:
         soil_types = window_gdf['element'].dropna().unique()
-        # Use new soil type groups for filtering
         valid_soil_types = [s for s in soil_types if s in ALL_VALID_SOILS]
-        # Area check for water types using new group
         river_types = ALL_WATER_SOILS
         window_gdf['area'] = window_gdf.geometry.area
         river_area = window_gdf[window_gdf['element'].isin(river_types)]['area'].sum()
         total_area = window_gdf['area'].sum()
         river_fraction = river_area / total_area if total_area > 0 else 0
         has_water = any(s in river_types for s in soil_types)
-        # Area fraction for each valid soil type
-        soil_area_fractions = []
-        for soil in set(valid_soil_types):
-            soil_area = window_gdf[window_gdf['element'] == soil]['area'].sum()
-            fraction = soil_area / total_area if total_area > 0 else 0
-            soil_area_fractions.append(fraction)
-        # Ensure at least 3 valid soils, <=50% water, at least one water type, and each soil >=10%
-        
+
+        # Rasterization for cell-based area check
+        shapes = []
+        for _, row in window_gdf.iterrows():
+            soil = row.get("element")
+            idx = SOIL_TYPE_TO_INDEX.get(soil)
+            if idx is not None:
+                shapes.append((row.geometry, idx))
+        out_shape = (10, 10)
+        transform = rasterio.transform.from_bounds(x0, y0, x1, y1, out_shape[1], out_shape[0])
+        raster = rasterize(
+            ((geom, int(val)) for geom, val in shapes),
+            out_shape=out_shape,
+            transform=transform,
+            fill=0,
+            dtype="uint8"
+        )
+        # Compute cell-based fractions
+        unique, counts = np.unique(raster, return_counts=True)
+        cell_fractions = {idx: count / raster.size for idx, count in zip(unique, counts)}
+        # Only consider soil types present in this raster window
+        present_soil_indexes = set(unique)
+        # Check: at least 3 valid soils, <=50% water, at least one water type, and each present soil >=10%
+        enough_soils = len(present_soil_indexes) >= 3
+        enough_water = river_fraction <= 0.5
+        has_water_cell = any(SOIL_TYPE_ORDER[idx] in river_types for idx in present_soil_indexes)
+        all_above_10 = all(f >= 0.10 for idx, f in cell_fractions.items() if idx in present_soil_indexes)
         if (
-            len(set(valid_soil_types)) >= 3 and
-            river_fraction <= 0.5 and
-            has_water and
-            all(f >= 0.10 for f in soil_area_fractions)
+            enough_soils and
+            enough_water and
+            has_water_cell and
+            all_above_10
         ):
             found = True
     attempt += 1
