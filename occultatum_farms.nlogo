@@ -22,11 +22,19 @@ to setup
 end
 
 to spawn
-  ; This procedure can be used to spawn farmers or other agents
-  create-farmers 10 [
+  ;; Define water soil indexes (these must match the indexes used for water in your soil-colors-table)
+  let water-soil-indexes [0 1 2 3 4 5] ; <-- update this list to match your actual water soil indexes
+
+  ;; Collect all non-water patches
+  let nonwater-patches patches with [not member? soil_type water-soil-indexes]
+
+  ;; Only create as many farmers as there are non-water patches
+  let n min (list 5 count nonwater-patches)
+
+  create-farmers n [
     set color green
     set size 1.5
-    setxy random-pxcor random-pycor
+    move-to one-of nonwater-patches
   ]
 
   ask farmers [
