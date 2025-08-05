@@ -93,7 +93,6 @@ LEVEE_TYPES = {
     "high Pleistocene sands": "#D7C29E",
     "river dunes": "#FFFF00",
     "dunes and beach ridges": "#E6E600",
-    "post-Roman erosion": "#E1E1E1",
 }
 
 FLOOD_BASIN_TYPES = {
@@ -101,7 +100,8 @@ FLOOD_BASIN_TYPES = {
     "low floodplain": "#9ED7C2",
 }
 
-PEATLANDS_TYPES = {
+UNKNOWN_TYPES = {
+    "post-Roman erosion": "#E1E1E1",
     "eutrophic peatlands": "#D79E9E",
     "mesotrophic peatlands": "#CD8966",
     "oligotrophic peatlands": "#CD6666",
@@ -112,7 +112,7 @@ soil_names_to_colors = {}
 soil_names_to_colors.update(WATER_TYPES)
 soil_names_to_colors.update(LEVEE_TYPES)
 soil_names_to_colors.update(FLOOD_BASIN_TYPES)
-soil_names_to_colors.update(PEATLANDS_TYPES)
+soil_names_to_colors.update(UNKNOWN_TYPES)
 
 # 2. Build reference index for NetLogo (order: water, levee, flood basin, peatlands)
 SOIL_TYPE_ORDER = list(soil_names_to_colors.keys())
@@ -187,21 +187,31 @@ while not found:
                 levee_cell_count += counts[list(unique).index(idx)]
         levee_cell_fraction = levee_cell_count / raster.size
 
-        # Check: at least 3 valid soils, <50% water (rasterized), at least one water type, each present soil >=10%, and >=50% levee
+        # --- Calculate flood-basin fraction based on rasterized cells ---
+        flood_basin_types = set(FLOOD_BASIN_TYPES.keys())
+        flood_basin_cell_count = 0
+        for idx in present_soil_indexes:
+            if idx < len(SOIL_TYPE_ORDER) and SOIL_TYPE_ORDER[idx] in flood_basin_types:
+                flood_basin_cell_count += counts[list(unique).index(idx)]
+        flood_basin_cell_fraction = flood_basin_cell_count / raster.size
+
+        # Check: at least 3 valid soils, <50% water (rasterized), at least one water type, each present soil >=10%, >=30% levee, >=30% flood-basin
         enough_soils = len(present_soil_indexes) >= 3
-        enough_water_rasterized = water_cell_fraction < 0.5  # Use rasterized fraction instead of geometric
-        has_water_cell = any(SOIL_TYPE_ORDER[idx] in river_types for idx in present_soil_indexes if idx < len(SOIL_TYPE_ORDER))
-        all_above_10 = all(f >= 0.10 for idx, f in cell_fractions.items() if idx in present_soil_indexes)
-        enough_levee = levee_cell_fraction >= 0.3
+        enough_water_rasterized = water_cell_fraction < 0.5 and water_cell_fraction > 0.2  # Use rasterized fraction instead of geometric
+        #has_water_cell = any(SOIL_TYPE_ORDER[idx] in river_types for idx in present_soil_indexes if idx < len(SOIL_TYPE_ORDER))
+        # all_above_10 = all(f >= 0.10 for idx, f in cell_fractions.items() if idx in present_soil_indexes)
+        enough_levee = levee_cell_fraction >= 0.25
+        enough_flood_basin = flood_basin_cell_fraction >= 0.25
 
         if (
             enough_soils and
             enough_water_rasterized and
-            has_water_cell and
-            all_above_10 and
-            enough_levee
+            # has_water_cell and
+            #all_above_10 and
+            enough_levee and
+            enough_flood_basin
         ):
-            print(f"Found suitable window: {len(present_soil_indexes)} soil types, {water_cell_fraction:.1%} water cells, {levee_cell_fraction:.1%} levee cells")
+            print(f"Found suitable window: {len(present_soil_indexes)} soil types, {water_cell_fraction:.1%} water cells, {levee_cell_fraction:.1%} levee cells, {flood_basin_cell_fraction:.1%} flood-basin cells")
             # Print all soil types present in the rasterized window
             present_soil_types = [SOIL_TYPE_ORDER[idx] for idx in sorted(present_soil_indexes)]
             print("Soil types present in rasterized window:", present_soil_types)
@@ -287,7 +297,7 @@ SOIL_GROUPS = [
     ("water", WATER_TYPES),
     ("levee", LEVEE_TYPES),
     ("flood-basin", FLOOD_BASIN_TYPES),
-    ("peatlands", PEATLANDS_TYPES),
+    ("peatlands", UNKNOWN_TYPES),
 ]
 SOIL_TYPE_TO_GROUP = {}
 SOIL_TYPE_TO_GROUP_NAME = {}
