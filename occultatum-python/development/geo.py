@@ -297,7 +297,7 @@ SOIL_GROUPS = [
     ("water", WATER_TYPES),
     ("levee", LEVEE_TYPES),
     ("flood-basin", FLOOD_BASIN_TYPES),
-    ("peatlands", UNKNOWN_TYPES),
+    ("unknown", UNKNOWN_TYPES),
 ]
 SOIL_TYPE_TO_GROUP = {}
 SOIL_TYPE_TO_GROUP_NAME = {}
@@ -315,7 +315,7 @@ soil_group_name_arr = np.zeros((nrows, ncols), dtype='<U32')
 pcolor_arr = np.empty((nrows, ncols, 3), dtype=int)
 
 # Create lookup tables for NetLogo
-soil_group_names = ["water", "levee", "flood-basin", "peatlands"]
+soil_group_names = ["water", "levee", "flood-basin", "unknown"]
 
 for i in range(nrows):
     for j in range(ncols):

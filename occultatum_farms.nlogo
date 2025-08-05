@@ -9,6 +9,13 @@ patches-own [
   soil-type-name
   landscape-type
   landscape-type-name
+  biomass
+  use
+]
+
+globals [
+  forest-cover
+  fen-cover
 ]
 
 to setup
@@ -20,7 +27,9 @@ to setup
     set soil-type-name "unknown"
     set landscape-type -1
     set landscape-type-name "unknown"
+    set use "none"
     set pcolor gray
+    set biomass 0
   ]
 end
 
@@ -31,6 +40,10 @@ to spawn
   ;; Only create as many farmers as there are non-water patches
   let n min (list 5 count levee-patches)
 
+  set forest-cover 0.3
+  set fen-cover 0.2
+  setup-forest
+
   create-farmers n [
     set color green
     set size 1.5
@@ -40,6 +53,33 @@ to spawn
   ask farmers [
     set median-landscape-type (median [landscape-type] of patches in-radius 2)
     show landscape-type
+  ]
+end
+
+to setup-forest
+  ;; Assign forest to a percentage of levee and flood-basin patches
+  let forest-patches patches with [landscape-type-name = "levee" or landscape-type-name = "flood-basin"]
+  let n-forest round (count forest-patches * forest-cover)
+  ask n-of n-forest forest-patches [
+    set use "forest"
+    if landscape-type-name = "levee" [
+      set biomass (100 + random 20) * 439
+    ]
+    if landscape-type-name = "flood-basin" [
+      set biomass (110 + random 30) * 439
+    ]
+  ]
+
+  ;; Assign fen to a percentage of black/unknown patches
+  let fen-patches patches with [landscape-type-name = "unknown"]
+  let n-fen round (fen-cover * count fen-patches)
+  ask n-of n-fen fen-patches [
+    set use "fen"
+    set biomass (65 + random 20) * 439
+  ]
+  ;; Color patches by biomass
+  ask patches with [biomass > 0] [
+    set pcolor scale-color green biomass 100000 1000
   ]
 end
 @#$#@#$#@
