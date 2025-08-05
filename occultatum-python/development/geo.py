@@ -169,17 +169,27 @@ while not found:
         unique, counts = np.unique(raster, return_counts=True)
         cell_fractions = {idx: count / raster.size for idx, count in zip(unique, counts)}
         present_soil_indexes = set(unique)
-        # Check: at least 3 valid soils, <=50% water, at least one water type, and each present soil >=10%
+        
+        # Calculate water fraction based on rasterized cells
+        water_cell_count = 0
+        for idx in present_soil_indexes:
+            if idx < len(SOIL_TYPE_ORDER) and SOIL_TYPE_ORDER[idx] in river_types:
+                water_cell_count += counts[list(unique).index(idx)]
+        water_cell_fraction = water_cell_count / raster.size
+        
+        # Check: at least 3 valid soils, <50% water (rasterized), at least one water type, and each present soil >=10%
         enough_soils = len(present_soil_indexes) >= 3
-        enough_water = river_fraction <= 0.5
-        has_water_cell = any(SOIL_TYPE_ORDER[idx] in river_types for idx in present_soil_indexes)
+        enough_water_rasterized = water_cell_fraction < 0.5  # Use rasterized fraction instead of geometric
+        has_water_cell = any(SOIL_TYPE_ORDER[idx] in river_types for idx in present_soil_indexes if idx < len(SOIL_TYPE_ORDER))
         all_above_10 = all(f >= 0.10 for idx, f in cell_fractions.items() if idx in present_soil_indexes)
+        
         if (
             enough_soils and
-            enough_water and
+            enough_water_rasterized and  # Updated condition
             has_water_cell and
             all_above_10
         ):
+            print(f"Found suitable window: {len(present_soil_indexes)} soil types, {water_cell_fraction:.1%} water cells")
             found = True
     attempt += 1
 
@@ -329,9 +339,10 @@ netlogo.patch_set("soil_group_name", pd.DataFrame(soil_group_name_idx_arr))  # N
 for i in range(nrows):
     for j in range(ncols):
         pcolor_rgb = pcolor_arr[i, j]
-
+        pxcor = j
+        pycor = (nrows - 1) - i  # flip y-axis to match NetLogo's coordinate system
         netlogo.command(
-            f"ask patch {i} {j} [set pcolor rgb {pcolor_rgb[0]} {pcolor_rgb[1]} {pcolor_rgb[2]}]"
+            f"ask patch {pxcor} {pycor} [set pcolor rgb {pcolor_rgb[0]} {pcolor_rgb[1]} {pcolor_rgb[2]}]"
         )
 
 netlogo.command("spawn")
