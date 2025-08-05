@@ -283,9 +283,9 @@ for idx, (group_name, group_dict) in enumerate(SOIL_GROUPS):
 # Build patch attribute arrays for NetLogo
 nrows, ncols = raster.shape
 soil_type_idx_arr = np.zeros((nrows, ncols), dtype=int)
-soil_type_name_idx_arr = np.zeros((nrows, ncols), dtype=int)  # Use indices instead of strings
+soil_type_name_arr = np.zeros((nrows, ncols), dtype='<U32')
 soil_group_idx_arr = np.zeros((nrows, ncols), dtype=int)
-soil_group_name_idx_arr = np.zeros((nrows, ncols), dtype=int)  # Use indices instead of strings
+soil_group_name_arr = np.zeros((nrows, ncols), dtype='<U32')
 pcolor_arr = np.empty((nrows, ncols, 3), dtype=int)
 
 # Create lookup tables for NetLogo
@@ -297,13 +297,12 @@ for i in range(nrows):
         soil_name = SOIL_TYPE_ORDER[idx]
         group_idx = SOIL_TYPE_TO_GROUP.get(soil_name, -1)
         group_name = SOIL_TYPE_TO_GROUP_NAME.get(soil_name, "unknown")
-        group_name_idx = soil_group_names.index(group_name) if group_name in soil_group_names else -1
         hex_color = soil_names_to_colors[soil_name]
         r, g, b = hex_to_rgb(hex_color)
         soil_type_idx_arr[i, j] = idx
-        soil_type_name_idx_arr[i, j] = idx  # Use soil type index as name index
+        soil_type_name_arr[i, j] = soil_name  # Use soil type index as name index
         soil_group_idx_arr[i, j] = group_idx
-        soil_group_name_idx_arr[i, j] = group_name_idx
+        soil_group_name_arr[i, j] = group_name
         pcolor_arr[i, j] = [r, g, b]
 
 import pynetlogo
@@ -329,12 +328,8 @@ netlogo.command("clear-all")
 # Set patch attributes from Python
 print("Setting patch attributes in NetLogo...")
 
-print(pd.DataFrame(soil_group_idx_arr))
-
 netlogo.patch_set("soil_type", pd.DataFrame(soil_type_idx_arr))
-netlogo.patch_set("soil_type_name", pd.DataFrame(soil_type_name_idx_arr))  # Now using indices
 netlogo.patch_set("soil_group", pd.DataFrame(soil_group_idx_arr))
-netlogo.patch_set("soil_group_name", pd.DataFrame(soil_group_name_idx_arr))  # Now using indices
 
 for i in range(nrows):
     for j in range(ncols):
@@ -343,6 +338,14 @@ for i in range(nrows):
         pycor = (nrows - 1) - i  # flip y-axis to match NetLogo's coordinate system
         netlogo.command(
             f"ask patch {pxcor} {pycor} [set pcolor rgb {pcolor_rgb[0]} {pcolor_rgb[1]} {pcolor_rgb[2]}]"
+        )
+
+        netlogo.command(
+            f"ask patch {pxcor} {pycor} [set soil_type_name \"{soil_type_name_arr[i, j]}\" ]"
+        )
+
+        netlogo.command(
+            f"ask patch {pxcor} {pycor} [set soil_group_name \"{soil_group_name_arr[i, j]}\" ]"
         )
 
 netlogo.command("spawn")
