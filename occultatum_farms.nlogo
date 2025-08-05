@@ -1,53 +1,53 @@
 breed [farmers farmer]
 
 farmers-own [
-  median_soil_group
+  median-landscape-type
 ]
 
 patches-own [
-  soil_type           ;; integer index for soil type
-  soil_type_name      ;; integer index into soil-type-names list
-  soil_group          ;; integer index for soil group
-  soil_group_name     ;; integer index into soil-group-names list
+  soil-type
+  soil-type-name
+  landscape-type
+  landscape-type-name
 ]
 
 to setup
   clear-all
   reset-ticks
+
   ask patches [
-    set soil_type -1
-    set soil_type_name -1
-    set soil_group -1
-    set soil_group_name -1
+    set soil-type -1
+    set soil-type-name "unknown"
+    set landscape-type -1
+    set landscape-type-name "unknown"
     set pcolor gray
   ]
 end
 
 to spawn
-  ;; Collect all non-water patches (soil_group > 0, excluding water)
-  let nonwater_patches patches with [soil_group > 0]
+  ;; Collect all non-water patches (landscape-type > 0, excluding water)
+  let levee-patches patches with [landscape-type = "levee"]
 
   ;; Only create as many farmers as there are non-water patches
-  let n min (list 5 count nonwater_patches)
+  let n min (list 5 count levee-patches)
 
   create-farmers n [
     set color green
     set size 1.5
-    move-to one-of nonwater_patches
+    move-to one-of levee-patches
   ]
 
   ask farmers [
-    set median_soil_group (median [soil_group] of patches in-radius 2)
-    show soil_group
+    set median-landscape-type (median [landscape-type] of patches in-radius 2)
+    show landscape-type
   ]
 end
-
 @#$#@#$#@
 GRAPHICS-WINDOW
 210
 10
-647
-448
+868
+669
 -1
 -1
 13.0
@@ -60,10 +60,10 @@ GRAPHICS-WINDOW
 1
 1
 1
--16
-16
--16
-16
+0
+49
+0
+49
 0
 0
 1

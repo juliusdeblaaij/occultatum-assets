@@ -13,6 +13,9 @@ import json
 import os
 import pandas as pd
 
+AREA_SIDE_LENGTH_METERS = 5000
+TILE_SIDE_LENGTH_METERS = 100
+
 with open("/home/juliusdb/Documents/repos/occultatum-assets/limes_paleogeography.json") as f:
     data = json.load(f)
 gdf = gpd.GeoDataFrame.from_features(data)
@@ -40,8 +43,7 @@ if gdf.crs.to_epsg() == 4326:
 # Get the total bounds of the data (minx, miny, maxx, maxy)
 minx, miny, maxx, maxy = gdf.total_bounds
 
-hectare_side = 100  # meters
-window_size = 10 * hectare_side  # 1000 meters
+window_size = AREA_SIDE_LENGTH_METERS  # 1000 meters
 
 # Try to find a window with at least 3 soil types
 max_attempts = 1000
@@ -176,20 +178,33 @@ while not found:
             if idx < len(SOIL_TYPE_ORDER) and SOIL_TYPE_ORDER[idx] in river_types:
                 water_cell_count += counts[list(unique).index(idx)]
         water_cell_fraction = water_cell_count / raster.size
-        
-        # Check: at least 3 valid soils, <50% water (rasterized), at least one water type, and each present soil >=10%
+
+        # --- Calculate levee fraction based on rasterized cells ---
+        levee_types = set(LEVEE_TYPES.keys())
+        levee_cell_count = 0
+        for idx in present_soil_indexes:
+            if idx < len(SOIL_TYPE_ORDER) and SOIL_TYPE_ORDER[idx] in levee_types:
+                levee_cell_count += counts[list(unique).index(idx)]
+        levee_cell_fraction = levee_cell_count / raster.size
+
+        # Check: at least 3 valid soils, <50% water (rasterized), at least one water type, each present soil >=10%, and >=50% levee
         enough_soils = len(present_soil_indexes) >= 3
         enough_water_rasterized = water_cell_fraction < 0.5  # Use rasterized fraction instead of geometric
         has_water_cell = any(SOIL_TYPE_ORDER[idx] in river_types for idx in present_soil_indexes if idx < len(SOIL_TYPE_ORDER))
         all_above_10 = all(f >= 0.10 for idx, f in cell_fractions.items() if idx in present_soil_indexes)
-        
+        enough_levee = levee_cell_fraction >= 0.3
+
         if (
             enough_soils and
-            enough_water_rasterized and  # Updated condition
+            enough_water_rasterized and
             has_water_cell and
-            all_above_10
+            all_above_10 and
+            enough_levee
         ):
-            print(f"Found suitable window: {len(present_soil_indexes)} soil types, {water_cell_fraction:.1%} water cells")
+            print(f"Found suitable window: {len(present_soil_indexes)} soil types, {water_cell_fraction:.1%} water cells, {levee_cell_fraction:.1%} levee cells")
+            # Print all soil types present in the rasterized window
+            present_soil_types = [SOIL_TYPE_ORDER[idx] for idx in sorted(present_soil_indexes)]
+            print("Soil types present in rasterized window:", present_soil_types)
             found = True
     attempt += 1
 
@@ -254,7 +269,8 @@ for _, row in window_gdf.iterrows():
     # else: skip unknown types
 
 # Raster size and transform
-out_shape = (10, 10)
+amount_of_tiles_per_side = AREA_SIDE_LENGTH_METERS // TILE_SIDE_LENGTH_METERS
+out_shape = (amount_of_tiles_per_side, amount_of_tiles_per_side)
 transform = rasterio.transform.from_bounds(x0, y0, x1, y1, out_shape[1], out_shape[0])
 
 # Rasterize to integer mask
@@ -328,8 +344,8 @@ netlogo.command("clear-all")
 # Set patch attributes from Python
 print("Setting patch attributes in NetLogo...")
 
-netlogo.patch_set("soil_type", pd.DataFrame(soil_type_idx_arr))
-netlogo.patch_set("soil_group", pd.DataFrame(soil_group_idx_arr))
+netlogo.patch_set("soil-type", pd.DataFrame(soil_type_idx_arr))
+netlogo.patch_set("landscape-type", pd.DataFrame(soil_group_idx_arr))
 
 for i in range(nrows):
     for j in range(ncols):
@@ -341,11 +357,11 @@ for i in range(nrows):
         )
 
         netlogo.command(
-            f"ask patch {pxcor} {pycor} [set soil_type_name \"{soil_type_name_arr[i, j]}\" ]"
+            f"ask patch {pxcor} {pycor} [set soil-type-name \"{soil_type_name_arr[i, j]}\" ]"
         )
 
         netlogo.command(
-            f"ask patch {pxcor} {pycor} [set soil_group_name \"{soil_group_name_arr[i, j]}\" ]"
+            f"ask patch {pxcor} {pycor} [set landscape-type-name \"{soil_group_name_arr[i, j]}\" ]"
         )
 
 netlogo.command("spawn")
