@@ -1,56 +1,47 @@
-extensions [table]
-
 breed [farmers farmer]
 
 farmers-own [
-  median_soil_type
+  median_soil_group
 ]
 
 patches-own [
-  soil_type
-]
-
-globals [
-  soil-colors-table ; table mapping soil_type index to NetLogo color integer
+  soil_type           ;; integer index for soil type
+  soil_type_name      ;; integer index into soil-type-names list
+  soil_group          ;; integer index for soil group
+  soil_group_name     ;; integer index into soil-group-names list
 ]
 
 to setup
   clear-all
   reset-ticks
-  set soil-colors-table table:make
-  ask patches [ set soil_type -1 set pcolor gray ]
+  ask patches [
+    set soil_type -1
+    set soil_type_name -1
+    set soil_group -1
+    set soil_group_name -1
+    set pcolor gray
+  ]
 end
 
 to spawn
-  ;; Define water soil indexes (these must match the indexes used for water in your soil-colors-table)
-  let water-soil-indexes [0 1 2 3 4 5] ; <-- update this list to match your actual water soil indexes
-
-  ;; Collect all non-water patches
-  let nonwater-patches patches with [not member? soil_type water-soil-indexes]
+  ;; Collect all non-water patches (soil_group > 0, excluding water)
+  let nonwater_patches patches with [soil_group > 0]
 
   ;; Only create as many farmers as there are non-water patches
-  let n min (list 5 count nonwater-patches)
+  let n min (list 5 count nonwater_patches)
 
   create-farmers n [
     set color green
     set size 1.5
-    move-to one-of nonwater-patches
+    move-to one-of nonwater_patches
   ]
 
   ask farmers [
-    set median_soil_type (median [soil_type] of patches in-radius 2)
+    set median_soil_group (median [soil_group] of patches in-radius 2)
+    show soil_group
   ]
 end
 
-to color-patches-from-table
-  ask patches [
-    ifelse table:has-key? soil-colors-table soil_type [
-      set pcolor table:get soil-colors-table soil_type
-    ] [
-      set pcolor gray
-    ]
-  ]
-end
 @#$#@#$#@
 GRAPHICS-WINDOW
 210

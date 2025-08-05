@@ -256,26 +256,45 @@ raster = rasterize(
     dtype="uint8"
 )
 
-# Build a DataFrame of soil type indices for NetLogo patch_set
-soil_type_df = pd.DataFrame(raster)
+# --- Soil group mapping ---
+SOIL_GROUPS = [
+    ("water", WATER_TYPES),
+    ("levee", LEVEE_TYPES),
+    ("flood-basin", FLOOD_BASIN_TYPES),
+    ("peatlands", PEATLANDS_TYPES),
+]
+SOIL_TYPE_TO_GROUP = {}
+SOIL_TYPE_TO_GROUP_NAME = {}
+for idx, (group_name, group_dict) in enumerate(SOIL_GROUPS):
+    for soil_name in group_dict.keys():
+        SOIL_TYPE_TO_GROUP[soil_name] = idx
+        SOIL_TYPE_TO_GROUP_NAME[soil_name] = group_name
 
-print(soil_type_df)
+# Build patch attribute arrays for NetLogo
+nrows, ncols = raster.shape
+soil_type_idx_arr = np.zeros((nrows, ncols), dtype=int)
+soil_type_name_idx_arr = np.zeros((nrows, ncols), dtype=int)  # Use indices instead of strings
+soil_group_idx_arr = np.zeros((nrows, ncols), dtype=int)
+soil_group_name_idx_arr = np.zeros((nrows, ncols), dtype=int)  # Use indices instead of strings
+pcolor_arr = np.empty((nrows, ncols, 3), dtype=int)
 
-# Print legend mapping present soil indexes to their soil names
-present_soil_indexes = set(np.unique(raster))
-legend = {idx: SOIL_TYPE_ORDER[idx] for idx in present_soil_indexes if idx < len(SOIL_TYPE_ORDER)}
-print("Soil index legend for selected window:")
-for idx, name in legend.items():
-    print(f"  {idx}: {name}")
+# Create lookup tables for NetLogo
+soil_group_names = ["water", "levee", "flood-basin", "peatlands"]
 
-# Dynamically calculate NetLogo color (as rgb tuple) from hex for each soil type index
-soil_index_to_netlogo_color = {}
-for idx, soil_name in enumerate(SOIL_TYPE_ORDER):
-    hex_color = soil_names_to_colors[soil_name]
-    r, g, b = hex_to_rgb(hex_color)
-    netlogo_color = rgb_to_netlogo_approx_color(r, g, b)
-    soil_index_to_netlogo_color[idx] = netlogo_color
-
+for i in range(nrows):
+    for j in range(ncols):
+        idx = int(raster[i, j])
+        soil_name = SOIL_TYPE_ORDER[idx]
+        group_idx = SOIL_TYPE_TO_GROUP.get(soil_name, -1)
+        group_name = SOIL_TYPE_TO_GROUP_NAME.get(soil_name, "unknown")
+        group_name_idx = soil_group_names.index(group_name) if group_name in soil_group_names else -1
+        hex_color = soil_names_to_colors[soil_name]
+        r, g, b = hex_to_rgb(hex_color)
+        soil_type_idx_arr[i, j] = idx
+        soil_type_name_idx_arr[i, j] = idx  # Use soil type index as name index
+        soil_group_idx_arr[i, j] = group_idx
+        soil_group_name_idx_arr[i, j] = group_name_idx
+        pcolor_arr[i, j] = [r, g, b]
 
 import pynetlogo
 jvm_path = os.path.join(os.environ["JAVA_HOME"], "lib", "server", "libjvm.so")
@@ -289,34 +308,30 @@ netlogo.load_model('/home/juliusdb/Documents/repos/occultatum-assets/occultatum_
 
 netlogo.command('setup')
 
-
 # Ensure NetLogo world matches the DataFrame shape
-nrows, ncols = soil_type_df.shape
 min_px = 0
 max_px = ncols - 1
 min_py = 0
 max_py = nrows - 1
-# Set NetLogo world size (patches)
 netlogo.command(f"resize-world {min_px} {max_px} {min_py} {max_py}")
 netlogo.command("clear-all")
 
-try:
-    print(" try patch_set in NetLogo")
-    netlogo.patch_set("soil_type", soil_type_df)
-    print("netlogo.patch_set(\"soil_type\", soil_type_df)")
-except Exception as e:
-    print("Error setting patch_set in NetLogo:", e)
+# Set patch attributes from Python
+print("Setting patch attributes in NetLogo...")
 
-print("patch_set finished")
+print(pd.DataFrame(soil_group_idx_arr))
 
-# Populate NetLogo table: soil-colors-table
-netlogo.command("set soil-colors-table table:make")
-for idx, color_tuple in soil_index_to_netlogo_color.items():
-    # NetLogo expects a color number or rgb list; use rgb list for full color
-    netlogo.command(f"table:put soil-colors-table {idx} (list {color_tuple[0]} {color_tuple[1]} {color_tuple[2]})")
+netlogo.patch_set("soil_type", pd.DataFrame(soil_type_idx_arr))
+netlogo.patch_set("soil_type_name", pd.DataFrame(soil_type_name_idx_arr))  # Now using indices
+netlogo.patch_set("soil_group", pd.DataFrame(soil_group_idx_arr))
+netlogo.patch_set("soil_group_name", pd.DataFrame(soil_group_name_idx_arr))  # Now using indices
 
-# Color patches using the table (calls NetLogo procedure)
-netlogo.command("color-patches-from-table")
+for i in range(nrows):
+    for j in range(ncols):
+        pcolor_rgb = pcolor_arr[i, j]
 
-print(" spawning farmers")
+        netlogo.command(
+            f"ask patch {i} {j} [set pcolor rgb {pcolor_rgb[0]} {pcolor_rgb[1]} {pcolor_rgb[2]}]"
+        )
+
 netlogo.command("spawn")
