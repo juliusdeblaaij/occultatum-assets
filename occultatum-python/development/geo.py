@@ -444,6 +444,7 @@ netlogo = pynetlogo.NetLogoLink(
 netlogo.load_model('/home/juliusdb/Documents/repos/occultatum-assets/occultatum_farms.nlogo')
 
 netlogo.command('setup')
+netlogo.command("set Nsettlements 20")  # Set the number of settlements to spawn
 
 # Ensure NetLogo world matches the DataFrame shape
 min_px = 0

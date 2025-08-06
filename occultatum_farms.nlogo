@@ -1,6 +1,15 @@
 breed [settlements settlement]
 breed [people person]
 
+globals [
+  forest-cover
+  fen-cover
+  soil-type-names
+  landscape-type-names
+  temp-pcolors
+  Nsettlements
+]
+
 settlements-own [
   median-landscape-type
 ]
@@ -17,20 +26,11 @@ patches-own [
 people-own [
   age
   gender
-]
-
-globals [
-  forest-cover
-  fen-cover
-  soil-type-names
-  landscape-type-names
-  temp-pcolors
+  kcal-required-yearly
+  home-settlement  ; Add reference to the settlement this person belongs to
 ]
 
 to setup
-  clear-all
-  reset-ticks
-
   ask patches [
     set soil-type -1
     set soil-type-name "unknown"
@@ -56,7 +56,7 @@ end
 
 to spawn
   ;; Only create as many settlements as there are non-water patches
-  let n min (list 5 count levee-patches)
+  let n min (list 20 count levee-patches)
 
   set forest-cover 0.3
   set fen-cover 0.2
@@ -76,6 +76,7 @@ to spawn
       set shape "person"
       set age 16 + random (49 - 16)
       set gender "male"
+      set home-settlement myself  ; Set reference to the parent settlement
     ]
     
     hatch-people 1 [
@@ -84,13 +85,31 @@ to spawn
       set shape "person"
       set age 16 + random (49 - 16)
       set gender "female"
+      set home-settlement myself  ; Set reference to the parent settlement
+    ]
+
+    hatch-people 1 + random 4 [
+      set color yellow
+      set size 0.5
+      set shape "person"
+      set age random 95
+      set gender one-of ["female" "male"]
+      set home-settlement myself  ; Set reference to the parent settlement
     ]
   ]
 
   ask people [
-    show age
-    show gender
-    show kcal-required age gender false
+    set kcal-required-yearly kcal-required age gender false
+  ]
+
+  ; Calculate grain requirements for each settlement separately
+  ask settlements [
+    ; Only sum calories for people belonging to this settlement
+    let settlement-kcal sum [kcal-required-yearly] of people with [home-settlement = myself]
+    let kg-grain kg-grain-required settlement-kcal 1
+    let amount_of_hectare_required kg-grain / 1000
+    let amount_of_tiles-required ceiling amount_of_hectare_required
+    show (word "Amount of grain required for settlement: " amount_of_hectare_required " hectares, or " amount_of_tiles-required " patches.")
   ]
 end
 
@@ -122,6 +141,9 @@ to setup-forest
   ]
 end
 
+to-report kg-grain-required [#kcal-required #percentage-grain-stable]
+  report (#kcal-required * 1000) * #percentage-grain-stable / 3100
+end
 
 to-report kcal-required [#age #gender #lactating?]
   ; Reporter that returns annual calorie requirements based on age and gender
