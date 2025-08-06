@@ -437,7 +437,7 @@ import pynetlogo
 jvm_path = os.path.join(os.environ["JAVA_HOME"], "lib", "server", "libjvm.so")
 
 netlogo = pynetlogo.NetLogoLink(
-    gui=False,
+    gui=True,
     jvm_path=jvm_path,
 )
 
@@ -483,4 +483,4 @@ netlogo.command(
     "(foreach (sort patches) temp-pcolors [ [p c] -> ask p [ set pcolor rgb (item 0 c) (item 1 c) (item 2 c) ] ])"
 )
 netlogo.command("spawn")
-netlogo.kill_workspace()
+# netlogo.kill_workspace()

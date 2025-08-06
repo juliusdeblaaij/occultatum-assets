@@ -1,6 +1,7 @@
-breed [farmers farmer]
+breed [settlements settlement]
+breed [people person]
 
-farmers-own [
+settlements-own [
   median-landscape-type
 ]
 
@@ -11,6 +12,11 @@ patches-own [
   landscape-type-name
   biomass
   use
+]
+
+people-own [
+  age
+  gender
 ]
 
 globals [
@@ -49,22 +55,42 @@ to-report unknown-patches
 end
 
 to spawn
-  ;; Only create as many farmers as there are non-water patches
+  ;; Only create as many settlements as there are non-water patches
   let n min (list 5 count levee-patches)
 
   set forest-cover 0.3
   set fen-cover 0.2
   setup-forest
 
-  create-farmers n [
-    set color green
+  create-settlements n [
+    set color gray
     set size 1.5
     move-to one-of levee-patches
+    set shape "house"
   ]
 
-  ask farmers [
-    set median-landscape-type (median [landscape-type] of patches in-radius 2)
-    show landscape-type
+  ask settlements [
+    hatch-people 1 [
+      set color blue
+      set size 0.5
+      set shape "person"
+      set age 16 + random (49 - 16)
+      set gender "male"
+    ]
+    
+    hatch-people 1 [
+      set color pink
+      set size 0.5
+      set shape "person"
+      set age 16 + random (49 - 16)
+      set gender "female"
+    ]
+  ]
+
+  ask people [
+    show age
+    show gender
+    show kcal-required age gender false
   ]
 end
 
@@ -95,6 +121,57 @@ to setup-forest
     set pcolor scale-color green biomass 100000 1000
   ]
 end
+
+
+to-report kcal-required [#age #gender #lactating?]
+  ; Reporter that returns annual calorie requirements based on age and gender
+  if #gender = "male" [
+    report kcal-required-male #age
+  ]
+  
+  if #gender = "female" [
+    report kcal-required-female #age #lactating?
+  ]
+  
+  ; Default return if gender is not recognized
+  report 0
+end
+
+to-report kcal-required-male [#age]
+  ; Returns annual calorie requirements for males based on age (in kcal * 10^3)
+  if #age = 0 [report 0]
+  if #age >= 1 and #age <= 4 [report 496.40]
+  if #age >= 5 and #age <= 9 [report 733.65]
+  if #age >= 10 and #age <= 15 [report 1003.75]
+  if #age >= 16 and #age <= 49 [report 1118.10]
+  if #age >= 50 [report 967.25]
+
+  ; Default return if age doesn't match any category
+  report 0
+end
+
+to-report kcal-required-female [#age #lactating?]
+  ; Returns annual calorie requirements for females based on age and lactation status (in kcal * 10^3)
+  if #age = 0 [report 0]
+  if #age >= 1 and #age <= 4 [report 496.40]
+  if #age >= 5 and #age <= 9 [report 733.65]
+  if #age >= 10 and #age <= 15 [report 883.30]
+
+  ; For women of reproductive age, lactation status affects caloric needs
+  if #age >= 16 and #age <= 49 [
+    ifelse #lactating? [
+      report 1285.18  ; Lactating women need more calories
+    ] [
+      report 1038.80  ; Non-lactating women
+    ]
+  ]
+
+  if #age >= 50 [report 894.25]
+
+  ; Default return if age doesn't match any category
+  report 0
+end
+
 @#$#@#$#@
 GRAPHICS-WINDOW
 210
