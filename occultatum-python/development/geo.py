@@ -437,7 +437,7 @@ import pynetlogo
 jvm_path = os.path.join(os.environ["JAVA_HOME"], "lib", "server", "libjvm.so")
 
 netlogo = pynetlogo.NetLogoLink(
-    gui=True,
+    gui=False,
     jvm_path=jvm_path,
 )
 
@@ -470,13 +470,17 @@ landscape_type_names_list = [name for name, _ in SOIL_GROUPS]
 netlogo_landscape_type_names = '[{}]'.format(' '.join(f'"{name}"' for name in landscape_type_names_list))
 netlogo.command(f'set landscape-type-names {netlogo_landscape_type_names}')
 
+# Prepare a NetLogo list of RGB triplets for all patches in NetLogo's patch order (pycor descending, pxcor ascending)
+pcolor_list = []
 for i in range(nrows):
     for j in range(ncols):
-        pcolor_rgb = pcolor_arr[i, j]
-        pxcor = j
-        pycor = (nrows - 1) - i  # flip y-axis to match NetLogo's coordinate system
-        netlogo.command(
-            f"ask patch {pxcor} {pycor} [set pcolor rgb {pcolor_rgb[0]} {pcolor_rgb[1]} {pcolor_rgb[2]}]"
-        )
-
+        r, g, b = pcolor_arr[i, j]
+        pcolor_list.append(f"[{r} {g} {b}]")
+netlogo_pcolor_list = "[{}]".format(" ".join(pcolor_list))
+# Use set to define temp-pcolors as a global variable (not let, which is local)
+netlogo.command(f"set temp-pcolors {netlogo_pcolor_list}")
+netlogo.command(
+    "(foreach (sort patches) temp-pcolors [ [p c] -> ask p [ set pcolor rgb (item 0 c) (item 1 c) (item 2 c) ] ])"
+)
 netlogo.command("spawn")
+netlogo.kill_workspace()
