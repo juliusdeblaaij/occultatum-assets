@@ -12,6 +12,7 @@ globals [
 
 settlements-own [
   median-landscape-type
+  biomass-stock
 ]
 
 patches-own [
@@ -52,6 +53,16 @@ end
 
 to-report unknown-patches
   report patches with [item landscape-type landscape-type-names = "unknown" ]
+end
+
+;; helper
+
+to-report at-most-n-of [ n agentset ]
+  ifelse count agentset > n [
+    report n-of n agentset
+  ] [
+    report agentset
+  ]
 end
 
 to spawn
@@ -102,14 +113,31 @@ to spawn
     set kcal-required-yearly kcal-required age gender false
   ]
 
-  ; Calculate grain requirements for each settlement separately
+  
+  ask settlements [
+    ask patch pxcor pycor [
+        set use "habitation"
+    ]
+  ]
+
+  ;; cultivate ground for arable farming
   ask settlements [
     ; Only sum calories for people belonging to this settlement
+    ; Calculate grain requirements for each settlement separately
     let settlement-kcal sum [kcal-required-yearly] of people with [home-settlement = myself]
     let kg-grain kg-grain-required settlement-kcal 1
     let amount_of_hectare_required kg-grain / 1000
-    let amount_of_tiles-required ceiling amount_of_hectare_required
-    show (word "Amount of grain required for settlement: " amount_of_hectare_required " hectares, or " amount_of_tiles-required " patches.")
+    let amount-of-tiles-required ceiling amount_of_hectare_required
+    show (word "Amount of grain required for settlement: " amount_of_hectare_required " hectares, or " amount-of-tiles-required " patches.")
+
+    let cultivated-patches at-most-n-of amount-of-tiles-required neighbors
+    let total-biomass sum [biomass] of cultivated-patches
+    set biomass-stock (biomass-stock + total-biomass)
+    ask cultivated-patches [
+      set use "arable farming"
+      set pcolor brown
+      set biomass 0
+    ]
   ]
 end
 
