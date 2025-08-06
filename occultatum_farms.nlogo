@@ -66,6 +66,11 @@ to-report at-most-n-of [ n agentset ]
 end
 
 to spawn
+
+  ask patches [
+    set landscape-type-name item landscape-type landscape-type-names
+  ]
+
   ;; Only create as many settlements as there are non-water patches
   let n min (list 20 count levee-patches)
 
@@ -130,7 +135,11 @@ to spawn
     let amount-of-tiles-required ceiling amount_of_hectare_required
     show (word "Amount of grain required for settlement: " amount_of_hectare_required " hectares, or " amount-of-tiles-required " patches.")
 
-    let cultivated-patches at-most-n-of amount-of-tiles-required neighbors
+    let cultivated-patches at-most-n-of amount-of-tiles-required (neighbors with [landscape-type-name = "levee"])
+    if count cultivated-patches = 0 [
+      show "No suitable patches found for arable farming."
+      stop
+    ]
     let total-biomass sum [biomass] of cultivated-patches
     set biomass-stock (biomass-stock + total-biomass)
     ask cultivated-patches [
