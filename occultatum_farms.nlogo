@@ -145,8 +145,6 @@ to cultivate-land
 
     let cultivated-patches at-most-n-of amount-of-tiles-required (neighbors with [landscape-type-name = "levee"])
 
-    show (word "settlement with " (count persons-in-settlement) " persons requires " amount_of_hectare_required " hectares of grain, or " amount-of-tiles-required " patches.")
-
     let total-biomass sum [biomass] of cultivated-patches
     set biomass-stock (biomass-stock + total-biomass)
     ask cultivated-patches [
@@ -229,6 +227,10 @@ to set-mortality
 end
 
 to go
+  if count persons = 0 [
+    stop
+  ]
+
   set-mortality
 
   ask persons [
@@ -239,16 +241,16 @@ to go
           set count-children count-children - 1
         ]
       ]
+
+      if is-agent? my-spouse and my-spouse != nobody [
+        ask my-spouse [ set my-spouse nobody ]
+      ]
+      
       show (word "Person " who " died at age " age)
       die
     ]
 
     set age age + 1
-  ]
-
-  if count persons = 0 [
-    show "All persons have died. Stopping simulation."
-    stop
   ]
 
   marriages
@@ -418,8 +420,12 @@ to marriages
     ]
   ]
 
-  print ( word "==== Creating settlements because of marriages: " settlement-creation-count )
-  new-settlement settlement-creation-count
+  if settlement-creation-count > 0 [
+    print ( word "==== Creating settlements because of marriages: " settlement-creation-count )
+
+    new-settlement settlement-creation-count
+  ]
+
 end
 
 to new-settlement [#amount]
