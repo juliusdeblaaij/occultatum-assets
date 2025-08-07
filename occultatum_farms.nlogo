@@ -1,5 +1,5 @@
 breed [settlements settlement]
-breed [people person]
+breed [persons person]
 
 globals [
   forest-cover
@@ -24,11 +24,17 @@ patches-own [
   use
 ]
 
-people-own [
+persons-own [
   age
-  gender
+  sex
   kcal-required-yearly
-  home-settlement  ; Add reference to the settlement this person belongs to
+  my-house  ; Add reference to the settlement this person belongs to
+  mortality
+  my-spouse
+  fertility
+  count-children
+  mother    ; reference to mother (person agent)
+  father    ; reference to father (person agent)
 ]
 
 to setup
@@ -86,39 +92,45 @@ to spawn
   ]
 
   ask settlements [
-    hatch-people 1 [
+    hatch-persons 1 [
       set color blue
       set size 0.5
       set shape "person"
       set age 16 + random (49 - 16)
-      set gender "male"
-      set home-settlement myself  ; Set reference to the parent settlement
+      set sex "male"
+      set my-house myself  ; Set reference to the parent settlement
     ]
     
-    hatch-people 1 [
+    hatch-persons 1 [
       set color pink
       set size 0.5
       set shape "person"
       set age 16 + random (49 - 16)
-      set gender "female"
-      set home-settlement myself  ; Set reference to the parent settlement
+      set sex "female"
+      set my-house myself  ; Set reference to the parent settlement
+
+      set my-spouse one-of other persons with [ sex = "male" and age >= 16 and age < 50 and my-spouse = nobody and my-house = [ my-house ] of myself ]
+      if my-spouse != nobody [
+        ask my-spouse [
+          set my-spouse myself
+        ]
+      ]
     ]
 
-    hatch-people 1 + random 4 [
+    hatch-persons 1 + random 4 [
       set color yellow
       set size 0.5
       set shape "person"
       set age random 95
-      set gender one-of ["female" "male"]
-      set home-settlement myself  ; Set reference to the parent settlement
+      set sex one-of ["female" "male"]
+      set my-house myself  ; Set reference to the parent settlement
     ]
   ]
 
-  ask people [
-    set kcal-required-yearly kcal-required age gender false
+  ask persons [
+    set kcal-required-yearly kcal-required age sex false
   ]
 
-  
   ask settlements [
     ask patch pxcor pycor [
         set use "habitation"
@@ -127,9 +139,9 @@ to spawn
 
   ;; cultivate ground for arable farming
   ask settlements [
-    ; Only sum calories for people belonging to this settlement
+    ; Only sum calories for persons belonging to this settlement
     ; Calculate grain requirements for each settlement separately
-    let settlement-kcal sum [kcal-required-yearly] of people with [home-settlement = myself]
+    let settlement-kcal sum [kcal-required-yearly] of persons with [my-house = myself]
     let kg-grain kg-grain-required settlement-kcal 1
     let amount_of_hectare_required kg-grain / 1000
     let amount-of-tiles-required ceiling amount_of_hectare_required
@@ -148,6 +160,98 @@ to spawn
       set biomass 0
     ]
   ]
+end
+
+;; in this procedure, age-specific mortality is set for persons; numbers are based on the adapted Coale and Demeny's (1966) Model West Level 3 Female life table, taken from Hin (2013)
+;; no distinction is made between male and female mortality
+
+to set-mortality
+  ask persons [
+    if age >= 0 and age < 1 [
+      set mortality 0.3056
+    ]
+    if age >= 1 and age < 5 [
+      set mortality 0.2158 / 4
+    ]
+    if age >= 5 and age < 10 [
+      set mortality 0.0606 / 5
+    ]
+    if age >= 10 and age < 15 [
+      set mortality 0.0474 / 5
+    ]
+    if age >= 15 and age < 20 [
+      set mortality 0.0615 / 5
+    ]
+    if age >= 20 and age < 25 [
+      set mortality 0.0766 / 5
+    ]
+    if age >= 25 and age < 30 [
+      set mortality 0.0857 / 5
+    ]
+    if age >= 30 and age < 35 [
+      set mortality 0.0965 / 5
+    ]
+    if age >= 35 and age < 40 [
+      set mortality 0.1054 / 5
+    ]
+    if age >= 40 and age < 45 [
+      set mortality 0.1123 / 5
+    ]
+    if age >= 45 and age < 50 [
+      set mortality 0.1197 / 5
+    ]
+    if age >= 50 and age < 55 [
+      set mortality 0.1529 / 5
+    ]
+    if age >= 55 and age < 60 [
+      set mortality 0.1912 / 5
+    ]
+    if age >= 60 and age < 65 [
+      set mortality 0.2715 / 5
+    ]
+    if age >= 65 and age < 70 [
+      set mortality 0.3484 / 5
+    ]
+    if age >= 70 and age < 75 [
+      set mortality 0.4713 / 5
+    ]
+    if age >= 75 and age < 80 [
+      set mortality 0.6081 / 5
+    ]
+    if age >= 80 and age < 85 [
+      set mortality 0.7349 / 5
+    ]
+    if age >= 85 and age < 90 [
+      set mortality 0.8650 / 5
+    ]
+    if age >= 90 and age < 95 [
+      set mortality 0.9513 / 5
+    ]
+    if age >= 95 [
+      set mortality 1
+    ]
+  ]
+end
+
+to go
+  set-mortality
+
+  ask persons [
+    if random-float 1.0 < mortality [
+      ;; Only decrement mother's count-children if mother is a person agent
+      if is-agent? mother and mother != nobody [
+        ask mother [
+          set count-children count-children - 1
+        ]
+      ]
+      show (word "Person " who " died at age " age)
+      die
+    ]
+
+    set age age + 1
+  ]
+
+  births
 end
 
 to setup-forest
@@ -182,17 +286,17 @@ to-report kg-grain-required [#kcal-required #percentage-grain-stable]
   report (#kcal-required * 1000) * #percentage-grain-stable / 3100
 end
 
-to-report kcal-required [#age #gender #lactating?]
-  ; Reporter that returns annual calorie requirements based on age and gender
-  if #gender = "male" [
+to-report kcal-required [#age #sex #lactating?]
+  ; Reporter that returns annual calorie requirements based on age and sex
+  if #sex = "male" [
     report kcal-required-male #age
   ]
   
-  if #gender = "female" [
+  if #sex = "female" [
     report kcal-required-female #age #lactating?
   ]
   
-  ; Default return if gender is not recognized
+  ; Default return if sex is not recognized
   report 0
 end
 
@@ -229,6 +333,56 @@ to-report kcal-required-female [#age #lactating?]
 
   ; Default return if age doesn't match any category
   report 0
+end
+
+;; in this procedure, age-specific fertility is set for females => 16 years old; numbers are based on the figures given in Coale & Trussell (1978)
+
+to set-fertility
+  ask persons with [ my-spouse != nobody and sex = "female" ] [
+    if age >= 16 and age < 19 [
+      set fertility 0.411
+    ]
+    if age >= 19 and age < 24 [
+      set fertility 0.46
+    ]
+    if age >= 24 and age < 29 [
+      set fertility 0.431
+    ]
+    if age >= 29 and age < 34 [
+      set fertility 0.395
+    ]
+    if age >= 34 and age < 39 [
+      set fertility 0.322
+    ]
+    if age >= 39 and age < 44 [
+      set fertility 0.167
+    ]
+    if age >= 44 and age < 50 [
+      set fertility 0.024
+    ]
+  ]
+end
+
+to births
+  set-fertility ;; call to set-fertility is needed to update fertility every year
+  ask persons with [ my-spouse != nobody and sex = "female" and age >= 16 and age < 50 ] [
+    if random-float 1.0 < fertility [
+
+      ;; generates a random value from 0 to 1. If the number is less than the fertility rate assigned to each married woman between 16 and 49 one child is generated. The sex is assigned randomly.
+      hatch 1 [
+        set breed persons
+        set age 0
+        set sex one-of ( list "male" "female" )
+        set my-house [ my-house ] of myself
+        set my-spouse nobody
+        set mother myself
+        set father my-spouse
+      ]
+      set count-children count-children + 1
+
+      show (word "Person " who " gave birth to a child. Total children count: " count-children)
+    ]
+  ]
 end
 
 @#$#@#$#@
@@ -537,11 +691,6 @@ Circle -7500403 true true 45 90 120
 Circle -7500403 true true 104 74 152
 
 triangle
-false
-0
-Polygon -7500403 true true 150 30 15 255 285 255
-
-triangle 2
 false
 0
 Polygon -7500403 true true 150 30 15 255 285 255

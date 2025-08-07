@@ -443,6 +443,8 @@ netlogo = pynetlogo.NetLogoLink(
 
 netlogo.load_model('/home/juliusdb/Documents/repos/occultatum-assets/occultatum_farms.nlogo')
 
+netlogo.command(f'random-seed {seed}')  # Set the random seed in NetLogo
+
 netlogo.command('setup')
 netlogo.command("set Nsettlements 20")  # Set the number of settlements to spawn
 
@@ -484,4 +486,6 @@ netlogo.command(
     "(foreach (sort patches) temp-pcolors [ [p c] -> ask p [ set pcolor rgb (item 0 c) (item 1 c) (item 2 c) ] ])"
 )
 netlogo.command("spawn")
+
+netlogo.repeat_command("go", 1000)
 # netlogo.kill_workspace()
