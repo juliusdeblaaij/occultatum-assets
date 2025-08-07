@@ -8,11 +8,13 @@ globals [
   landscape-type-names
   temp-pcolors
   Nsettlements
+  end-simulation?
 ]
 
 settlements-own [
   median-landscape-type
   biomass-stock
+  no-households
 ]
 
 patches-own [
@@ -22,6 +24,7 @@ patches-own [
   landscape-type-name
   biomass
   use
+  belonging-to-settement
 ]
 
 persons-own [
@@ -38,6 +41,8 @@ persons-own [
 ]
 
 to setup
+  set end-simulation? false
+
   ask patches [
     set soil-type -1
     set soil-type-name "unknown"
@@ -84,12 +89,7 @@ to spawn
   set fen-cover 0.2
   setup-forest
 
-  create-settlements n [
-    set color gray
-    set size 1.5
-    move-to one-of levee-patches
-    set shape "house"
-  ]
+  new-settlement 5
 
   ask settlements [
     hatch-persons 1 [
@@ -100,7 +100,7 @@ to spawn
       set sex "male"
       set my-house myself  ; Set reference to the parent settlement
     ]
-    
+
     hatch-persons 1 [
       set color pink
       set size 0.5
@@ -124,34 +124,29 @@ to spawn
       set age random 95
       set sex one-of ["female" "male"]
       set my-house myself  ; Set reference to the parent settlement
+      set my-spouse nobody
     ]
   ]
 
-  ask persons [
-    set kcal-required-yearly kcal-required age sex false
-  ]
+  cultivate-land
+end
 
-  ask settlements [
-    ask patch pxcor pycor [
-        set use "habitation"
-    ]
-  ]
-
+to cultivate-land
   ;; cultivate ground for arable farming
   ask settlements [
     ; Only sum calories for persons belonging to this settlement
     ; Calculate grain requirements for each settlement separately
-    let settlement-kcal sum [kcal-required-yearly] of persons with [my-house = myself]
+    let persons-in-settlement persons with [my-house = myself]
+    let settlement-kcal sum [kcal-required-yearly] of persons-in-settlement
+
     let kg-grain kg-grain-required settlement-kcal 1
     let amount_of_hectare_required kg-grain / 1000
     let amount-of-tiles-required ceiling amount_of_hectare_required
-    show (word "Amount of grain required for settlement: " amount_of_hectare_required " hectares, or " amount-of-tiles-required " patches.")
 
     let cultivated-patches at-most-n-of amount-of-tiles-required (neighbors with [landscape-type-name = "levee"])
-    if count cultivated-patches = 0 [
-      show "No suitable patches found for arable farming."
-      stop
-    ]
+
+    show (word "settlement with " (count persons-in-settlement) " persons requires " amount_of_hectare_required " hectares of grain, or " amount-of-tiles-required " patches.")
+
     let total-biomass sum [biomass] of cultivated-patches
     set biomass-stock (biomass-stock + total-biomass)
     ask cultivated-patches [
@@ -251,7 +246,21 @@ to go
     set age age + 1
   ]
 
+  if count persons = 0 [
+    show "All persons have died. Stopping simulation."
+    stop
+  ]
+
+  marriages
+
   births
+
+  ask persons [
+    set kcal-required-yearly kcal-required age sex false
+  ]
+
+  cultivate-land
+
 end
 
 to setup-forest
@@ -291,11 +300,11 @@ to-report kcal-required [#age #sex #lactating?]
   if #sex = "male" [
     report kcal-required-male #age
   ]
-  
+
   if #sex = "female" [
     report kcal-required-female #age #lactating?
   ]
-  
+
   ; Default return if sex is not recognized
   report 0
 end
@@ -385,6 +394,44 @@ to births
   ]
 end
 
+to marriages
+  let settlement-creation-count 0
+
+  ask persons with [ sex = "male" and age >= 16 and age < 50 and my-spouse = nobody ] [
+    ;; if a male aged 16 to 49 is unmarried, they will seek a new spouse. If no unmarried females between 16 and 49 are available, the sub-process ends.
+    if any? other persons with [ sex = "female" and age >= 16 and age < 50 and my-spouse = nobody and my-house != [ my-house ] of myself ] [
+      ifelse [ count persons with [ my-spouse != nobody ] ] of my-house < ( [ no-households ] of my-house * 2 ) [
+        ;; if there is space for the new couple, the couple move to the male spouse's settlement. If not, the new couple moves to the female spouse's settlement.
+        set my-spouse one-of other persons with [ sex = "female" and age >= 16 and age < 50 and my-spouse = nobody and my-house != [ my-house ] of myself ]
+        ask my-spouse [
+          set my-spouse myself
+          set my-house [ my-house ] of myself
+        ]
+      ]
+      [
+        set my-spouse one-of other persons with [ sex = "female" and age >= 16 and age < 50 and my-spouse = nobody and my-house != [ my-house ] of myself ]
+        ask my-spouse [
+          set my-spouse myself
+        ]
+        set settlement-creation-count settlement-creation-count  + 1
+      ]
+    ]
+  ]
+
+  print ( word "==== Creating settlements because of marriages: " settlement-creation-count )
+  new-settlement settlement-creation-count
+end
+
+to new-settlement [#amount]
+  create-settlements #amount [
+    set color gray
+    set size 1.5
+    move-to one-of levee-patches with [use = "none" or use = "forest" ]
+    set shape "house"
+    set no-households 3
+    ask patch-here [ set use "settlement" ]
+  ]
+end
 @#$#@#$#@
 GRAPHICS-WINDOW
 210
