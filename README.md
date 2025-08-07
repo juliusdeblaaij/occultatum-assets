@@ -237,3 +237,4 @@ Copyright notices
 
 Copyright 2023 The HuggingFace Team. All rights reserved.
 Copyright (c) 2024 Tripo AI & Stability AI
+Copyright (c) 2005, 2008, 2012 Ilias Sakellariou
