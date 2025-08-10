@@ -108,33 +108,40 @@ to go
 
       ; Find the closest unclaimed patch
       if any? unclaimed-patches [
-        let closest min-one-of unclaimed-patches [distance myself]
-        ; Claim the patch
-        ask closest [
-          set claimed-by myself
 
-          ; Satisfy demand (example: only arable-farming for now, adjust as needed)
-          (ifelse [demand-arable-farming] of myself > 0 [
-            set pcolor ([color] of myself)
-            ask myself[
-              set demand-arable-farming demand-arable-farming - 1
-            ]
+        ; Satisfy demand (example: only arable-farming for now, adjust as needed)
+        (ifelse demand-arable-farming > 0 [
+
+
+          let closest min-one-of (unclaimed-patches with [suitability-arable-farming > 0.25]) [distance myself]
+          ask closest [
+            set pcolor scale-color ([color] of myself) suitability-arable-farming -1 1
+            set claimed-by myself
           ]
-          [demand-pasture] of myself > 0 [
-            set pcolor ([color] of myself) - 10
-            ask myself [
-                set demand-pasture demand-pasture - 1
-            ]
+
+          set demand-arable-farming demand-arable-farming - 1
+        ]
+        demand-pasture > 0 [
+
+
+          let closest min-one-of (unclaimed-patches with [suitability-pasture > 0.25]) [distance myself]
+          ask closest [
+              set pcolor scale-color ([color] of myself) suitability-pasture -1 1
+            set claimed-by myself
           ]
-          [demand-meadow] of myself > 0 [
-            set pcolor ([color] of myself) - 20
-            ask myself[
-                set demand-meadow demand-meadow - 1
-            ]
-          ])
-          ; You can extend this to pasture/meadow as needed
+           set demand-pasture demand-pasture - 1
         ]
 
+        demand-meadow > 0 [
+          let closest min-one-of (unclaimed-patches with [suitability-meadow > 0.25]) [distance myself]
+          ask closest [
+              set pcolor scale-color ([color] of myself) suitability-meadow -1 1
+            set claimed-by myself
+          ]
+
+              set demand-meadow demand-meadow - 1
+        ])
+        ; You can extend this to pasture/meadow as needed
       ]
     ]
   ]
