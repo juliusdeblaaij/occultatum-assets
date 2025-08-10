@@ -1,8 +1,18 @@
 breed [ settlements settlement ]
 
+globals [
+ seed-a
+ seed-x
+ seed-y
+]
+
 patches-own [
   visited?
   claimed-by ; which settlement (if any) claimed this patch
+  height
+  suitability-arable-farming
+  suitability-pasture
+  suitability-meadow
 ]
 
 settlements-own[
@@ -13,6 +23,34 @@ settlements-own[
   claimed-count ; how many patches this settlement has claimed
 ]
 
+to rescale-height
+  let height-max [height] of max-one-of patches [height]
+  let height-min [height] of min-one-of patches [height]
+  let delta height-max - height-min
+  let m 2 / delta
+  let b (-1 - m * height-min)
+  ask patches
+  [
+    set height (m * height + b + 0)
+  ]
+end
+
+to generate-random-height
+  set seed-a random-float 100000
+  set seed-x random-float 1000
+  set seed-y random-float 1000
+
+  ask patches [
+    set height 0
+    let amplitude 1
+    let frequency 5 / (max-pxcor - min-pxcor)
+
+    set height height + amplitude *  (noise (pxcor * 1 * frequency) (pycor * 1 * frequency))
+  ]
+
+  rescale-height
+end
+
 to setup
   clear-all
 
@@ -20,10 +58,30 @@ to setup
    set claimed-by nobody
   ]
 
-  repeat 1 [
+  generate-random-height
+
+  ask patches [
+   set suitability-arable-farming height
+  ]
+
+  generate-random-height
+
+  ask patches [
+   set suitability-pasture height
+  ]
+
+  generate-random-height
+
+  ask patches [
+   set suitability-meadow height
+  ]
+
+  ask patches [set pcolor (rgb (suitability-arable-farming * 255) (suitability-pasture * 255) (suitability-meadow * 255))]
+
+  repeat 20 [
     ask one-of patches with [(not any? other turtles-here) and (not any? turtles-on neighbors)] [
       sprout-settlements 1 [
-       set amount-of-people random 4 + 2
+       set amount-of-people 2 + random 4
        print amount-of-people
        set demand-arable-farming 7 * amount-of-people
        set demand-pasture 10 * amount-of-people
@@ -35,19 +93,18 @@ to setup
     ]
   ]
 
-  repeat 100 [go]
+  repeat 200 [go]
 
 end
 
 
 to go
   ask settlements [
-    let radius 4
 
     ; Only proceed if there is still demand to satisfy
     if (demand-arable-farming > 0 or demand-pasture > 0 or demand-meadow > 0)[
       ; Find all unclaimed patches within radius
-      let unclaimed-patches (patches in-radius radius) with [claimed-by = nobody]
+      let unclaimed-patches patches with [claimed-by = nobody]
 
       ; Find the closest unclaimed patch
       if any? unclaimed-patches [
@@ -82,15 +139,54 @@ to go
     ]
   ]
 end
+
+;; Fractal Noise generator
+;; We imagine a square with 4 corner points, with our point of interest somewhere inside
+;; We assign each point a random value, and consider the dot product between our point of interest and each corner point
+;; Then we interpolate between the 4 nearest points to get smooth transitions
+
+to-report noise [x y]
+  ;; The "floor" part of our vector tells us which square inside the noise cloud we are located within
+  ;; The "fractional" part of our vector tells us where we are within that square
+  let floor-x floor x
+  let frac-x x - floor-x
+  let floor-y floor y
+  let frac-y y - floor-y
+
+  ;; This is a special cubic interpolation function, which will gives us smoother results than linear interpolation
+  let u-x (frac-x * frac-x * (3 - 2 * frac-x))
+  let u-y (frac-y * frac-y * (3 - 2 * frac-y))
+
+  ;; These scalar values represent the value at each corner of the grid containing our point of interest.
+  let a rand floor-x floor-y
+  let b rand (floor-x + 1) floor-y
+  let c rand floor-x (floor-y + 1)
+  let d rand (floor-x + 1) (floor-y + 1)
+
+  ;; We interpolate between our 4 points to get the value at our point of interest
+  let int_1 (b - a) * u-x + a
+  let int_2 (c - a) * u-y * (1 - u-x)
+  let int_3 (d - b) * u-x * u-y
+  report int_1 + int_2 + int_3
+end
+
+;; Generate a random scalar vector
+;; We use this instead of random-float because it allows our noise cloud to remain the same from patch to patch - otherwise, each patch would
+;; base its value on a completely differently seeded noise cloud, and the result would be random static!
+
+to-report rand [x y]
+  let dot seed-a * sin(x * seed-x + y * seed-y)
+  report dot - floor dot
+end
 @#$#@#$#@
 GRAPHICS-WINDOW
 210
 10
-647
-448
+723
+524
 -1
 -1
-13.0
+5.0
 1
 10
 1
@@ -100,12 +196,12 @@ GRAPHICS-WINDOW
 0
 0
 1
--16
-16
--16
-16
-0
-0
+-50
+50
+-50
+50
+1
+1
 1
 ticks
 30.0
