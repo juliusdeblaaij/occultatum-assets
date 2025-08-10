@@ -14,35 +14,51 @@ settlements-own[
 
 to setup
   clear-all
-  create-settlements 1
 
-  ask settlements[
-    set demand-arable-farming 7
-    set demand-pasture 10
-    set demand-meadow 11
-    setxy random-pxcor random-pycor
+  ask patches [
+   set claimed-by nobody
   ]
+
+  repeat 20 [
+    ask one-of patches with [(not any? other turtles-here) and (not any? turtles-on neighbors)] [
+      sprout-settlements 1 [
+       set demand-arable-farming 20
+       set demand-pasture 10
+       set demand-meadow 11
+       ask patch-here [
+          set claimed-by myself
+        ]
+      ]
+    ]
+  ]
+
+  repeat 100 [go]
 
 end
 
 
 to go
   ask settlements [
-
     let radius 4
 
-    let patches-in-radius (patches in-radius radius) with [[patch-here] of myself != self]
-    let nearby sort-on [distance myself] patches-in-radius
+    ; Only proceed if there is still demand to satisfy
+    if (demand-arable-farming > 0)[
+      ; Find all unclaimed patches within radius
+      let unclaimed-patches (patches in-radius radius) with [claimed-by = nobody]
 
-    foreach nearby [nearby-patch -> ask nearby-patch [
-
-      if [demand-arable-farming] of myself > 0 [
-        print distance myself
-        set pcolor [color] of myself
-        ask myself [
-          set  demand-arable-farming demand-arable-farming - 1
+      ; Find the closest unclaimed patch
+      if any? unclaimed-patches [
+        let closest min-one-of unclaimed-patches [distance myself]
+        ; Claim the patch
+        ask closest [
+          set claimed-by myself
+          set pcolor [color] of myself
         ]
-      ]
+        ; Satisfy demand (example: only arable-farming for now, adjust as needed)
+        if demand-arable-farming > 0 [
+          set demand-arable-farming demand-arable-farming - 1
+        ]
+        ; You can extend this to pasture/meadow as needed
       ]
     ]
   ]
@@ -62,8 +78,8 @@ GRAPHICS-WINDOW
 1
 1
 0
-1
-1
+0
+0
 1
 -16
 16
