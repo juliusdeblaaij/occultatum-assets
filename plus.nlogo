@@ -9,6 +9,7 @@ settlements-own[
   demand-arable-farming
   demand-pasture
   demand-meadow
+  amount-of-people
   claimed-count ; how many patches this settlement has claimed
 ]
 
@@ -19,12 +20,14 @@ to setup
    set claimed-by nobody
   ]
 
-  repeat 20 [
+  repeat 1 [
     ask one-of patches with [(not any? other turtles-here) and (not any? turtles-on neighbors)] [
       sprout-settlements 1 [
-       set demand-arable-farming 20
-       set demand-pasture 10
-       set demand-meadow 11
+       set amount-of-people random 4 + 2
+       print amount-of-people
+       set demand-arable-farming 7 * amount-of-people
+       set demand-pasture 10 * amount-of-people
+       set demand-meadow 11 * amount-of-people
        ask patch-here [
           set claimed-by myself
         ]
@@ -42,7 +45,7 @@ to go
     let radius 4
 
     ; Only proceed if there is still demand to satisfy
-    if (demand-arable-farming > 0)[
+    if (demand-arable-farming > 0 or demand-pasture > 0 or demand-meadow > 0)[
       ; Find all unclaimed patches within radius
       let unclaimed-patches (patches in-radius radius) with [claimed-by = nobody]
 
@@ -52,13 +55,29 @@ to go
         ; Claim the patch
         ask closest [
           set claimed-by myself
-          set pcolor [color] of myself
+
+          ; Satisfy demand (example: only arable-farming for now, adjust as needed)
+          (ifelse [demand-arable-farming] of myself > 0 [
+            set pcolor ([color] of myself)
+            ask myself[
+              set demand-arable-farming demand-arable-farming - 1
+            ]
+          ]
+          [demand-pasture] of myself > 0 [
+            set pcolor ([color] of myself) - 10
+            ask myself [
+                set demand-pasture demand-pasture - 1
+            ]
+          ]
+          [demand-meadow] of myself > 0 [
+            set pcolor ([color] of myself) - 20
+            ask myself[
+                set demand-meadow demand-meadow - 1
+            ]
+          ])
+          ; You can extend this to pasture/meadow as needed
         ]
-        ; Satisfy demand (example: only arable-farming for now, adjust as needed)
-        if demand-arable-farming > 0 [
-          set demand-arable-farming demand-arable-farming - 1
-        ]
-        ; You can extend this to pasture/meadow as needed
+
       ]
     ]
   ]
