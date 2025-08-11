@@ -31,7 +31,7 @@ to rescale-height
   let b (-1 - m * height-min)
   ask patches
   [
-    set height (m * height + b + 0)
+    set height (((m * height + b + 0)) + 2) / 2
   ]
 end
 
@@ -53,6 +53,7 @@ end
 
 to setup
   clear-all
+  reset-ticks
 
   ask patches [
    set claimed-by nobody
@@ -78,11 +79,10 @@ to setup
 
   ask patches [set pcolor (rgb (suitability-arable-farming * 255) (suitability-pasture * 255) (suitability-meadow * 255))]
 
-  repeat 20 [
-    ask one-of patches with [(not any? other turtles-here) and (not any? turtles-on neighbors)] [
+  repeat 1 [
+    ask one-of patches with [(not any? other turtles-here) and (not any? turtles-on neighbors) and suitability-arable-farming > 0.5] [
       sprout-settlements 1 [
        set amount-of-people 2 + random 4
-       print amount-of-people
        set demand-arable-farming 7 * amount-of-people
        set demand-pasture 10 * amount-of-people
        set demand-meadow 11 * amount-of-people
@@ -92,8 +92,6 @@ to setup
       ]
     ]
   ]
-
-  repeat 200 [go]
 
 end
 
@@ -109,42 +107,38 @@ to go
       ; Find the closest unclaimed patch
       if any? unclaimed-patches [
 
-        ; Satisfy demand (example: only arable-farming for now, adjust as needed)
-        (ifelse demand-arable-farming > 0 [
+        let closest min-one-of unclaimed-patches [distance myself]
+        let weight-arable-farming [suitability-arable-farming] of closest * demand-arable-farming
+        let weight-pasture [suitability-pasture] of closest * demand-pasture
+        let weight-meadow [suitability-meadow] of closest * demand-meadow
 
-
-          let closest min-one-of (unclaimed-patches with [suitability-arable-farming > 0.25]) [distance myself]
+        if weight-arable-farming >= weight-pasture and weight-arable-farming >= weight-meadow [
           ask closest [
-            set pcolor scale-color ([color] of myself) suitability-arable-farming -1 1
+            set pcolor red
             set claimed-by myself
           ]
-
           set demand-arable-farming demand-arable-farming - 1
         ]
-        demand-pasture > 0 [
-
-
-          let closest min-one-of (unclaimed-patches with [suitability-pasture > 0.25]) [distance myself]
+        if weight-pasture >= weight-arable-farming and weight-pasture >= weight-meadow [
           ask closest [
-              set pcolor scale-color ([color] of myself) suitability-pasture -1 1
+            set pcolor green
             set claimed-by myself
           ]
-           set demand-pasture demand-pasture - 1
+          set demand-pasture demand-pasture - 1
         ]
-
-        demand-meadow > 0 [
-          let closest min-one-of (unclaimed-patches with [suitability-meadow > 0.25]) [distance myself]
+        if weight-meadow >= weight-arable-farming and weight-meadow >= weight-pasture [
           ask closest [
-              set pcolor scale-color ([color] of myself) suitability-meadow -1 1
+            set pcolor blue
             set claimed-by myself
           ]
-
-              set demand-meadow demand-meadow - 1
-        ])
+          set demand-meadow demand-meadow - 1
+        ]
         ; You can extend this to pasture/meadow as needed
       ]
     ]
   ]
+
+  tick
 end
 
 ;; Fractal Noise generator
@@ -231,10 +225,10 @@ NIL
 1
 
 BUTTON
-101
-153
-164
-186
+49
+123
+112
+156
 NIL
 go
 NIL
@@ -246,6 +240,24 @@ NIL
 NIL
 NIL
 1
+
+PLOT
+7
+276
+207
+426
+plot 1
+ticks
+demand arable
+0.0
+10990.0
+0.0
+100.0
+true
+false
+"" ""
+PENS
+"default" 1.0 0 -2674135 true "" "plot count settlements"
 
 @#$#@#$#@
 ## WHAT IS IT?
