@@ -26,6 +26,7 @@ settlements-own[
   demand-meadow
   amount-of-people
   remaining-catchment
+  coffers-sestertii
 ]
 
 to rescale-height
@@ -168,9 +169,47 @@ to go
       ;; https://imperiumromanum.pl/en/roman-economy/roman-goods-prices/
       ;; Wheat – 100 denarii for about 17 liters
       ;; Beef – 8 denarii for about 300 g
-      let beef-price-per-kg (8 / 300) * 1000
 
-      show (word "surplus wheat KG: " surplus-wheat " wheat profit sestertii: " (floor (surplus-wheat * wheat-kg-to-sestertii)) "HS surplus meat KG: " surplus-meat " meat profit sestertii: " (floor (surplus-meat * beef-kg-to-sestertii)) "HS")
+      let wheat-revenue (floor (surplus-wheat * wheat-kg-to-sestertii))
+      let beef-revenue (floor (surplus-meat * beef-kg-to-sestertii))
+
+      ;;show (word "surplus wheat KG: " surplus-wheat " wheat profit sestertii: " wheat-revenue "HS surplus meat KG: " surplus-meat " meat profit sestertii: " beef-revenue "HS")
+
+      let revenue wheat-revenue + beef-revenue
+
+      show (word "revenue: " revenue "HS")
+
+      let wheat-expenses 0
+      if demand-arable-farming > 0 [
+       let required-kg-wheat demand-arable-farming * 800
+        set wheat-expenses required-kg-wheat * wheat-kg-to-sestertii
+      ]
+
+      let beef-expenses 0
+      if demand-pasture > 0 or demand-meadow > 0 [
+        let sustainied-cattle-pasture ((abs demand-pasture) * ha-pasture-per-cattle)
+        let sustainied-cattle-meadow ((abs demand-meadow) * ha-pasture-per-cattle)
+
+        let max-cattle-shortage max (list (sustainied-cattle-pasture) (sustainied-cattle-meadow))
+
+        ;; Table 4.6. Annual meat yield (kg) per slaughtered young, immature and adult sheep or cow; annual milk yield (l) per
+        ;; lactating adult sheep or cow; annual manure yield (kg) per young, immature and adult cow. See appendix 3 for sources
+        ;; of assumptions.
+        let beef-shortage-kg max-cattle-shortage * 120
+
+        set beef-expenses beef-shortage-kg * beef-kg-to-sestertii
+      ]
+
+      let expenses wheat-expenses + beef-expenses
+
+      let profit revenue - expenses
+      show (word "Total revenue: " revenue "HS"
+        " wheat revenue " wheat-revenue "HS"
+        " beef revenue: " beef-revenue "HS"
+        " wheat expenses: " wheat-expenses "HS"
+        " beef expenses: " beef-expenses "HS"
+        " expenses: " expenses "HS"
+        " profit: " profit)
     ]
 
     stop
