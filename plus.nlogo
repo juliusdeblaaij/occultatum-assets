@@ -5,6 +5,10 @@ globals [
  seed-x
  seed-y
  total-catchment
+ wheat-kg-to-liter
+  beef-kg-to-sestertii
+  wheat-kg-to-sestertii
+  barley-kg-to-sestertii
 ]
 
 patches-own [
@@ -52,9 +56,26 @@ to generate-random-height
   rescale-height
 end
 
+to-report denarii-sestertii [#amount]
+  report #amount * 4
+end
+
+to-report grain-price [#liters]
+  ;; 10kg graan 5 euro
+  ;; per 1kg graan prijs delen door bekende hoeveelheid (5 / 10) = 0.5 per kg * aantal kilos
+  ;; 64 CE 3 sestertii / modus (8.73 liters)
+  report (#liters * (3 / 8.73))
+end
+
 to setup
   clear-all
   reset-ticks
+
+  set wheat-kg-to-liter 1.298701298701
+  ;; 64 CE 3 sestertii / modus (8.73 liters)
+  set beef-kg-to-sestertii 1.55
+  set wheat-kg-to-sestertii 0.26
+  set barley-kg-to-sestertii 0.12
 
   ask patches [
    set claimed-by nobody
@@ -114,7 +135,46 @@ end
 to go
 
   set total-catchment sum [remaining-catchment] of settlements
-  if total-catchment = 0 [ stop ]
+  if total-catchment = 0 [
+    ask settlements [
+
+      let surplus-wheat 0
+      let surplus-meat 0
+
+      ;; From ROMFARMS dissertation Table 4.5. Area of pasture and meadow land required (ha) by young, immature and adult sheep, cattle and horse. See
+      ;; appendix 3 for sources of assumptions
+      let ha-pasture-per-cattle 0.33
+      let ha-meadow-per-cattle 0.252
+
+      if demand-arable-farming < 0 [
+        set surplus-wheat (abs demand-arable-farming) * 800 ;;amount of consumable KG of wheat per hectare, assuming 200kg is lost for sowing
+      ]
+
+      set surplus-meat 0
+      if demand-pasture < 0 and demand-meadow < 0 [
+        let sustainied-cattle-pasture floor ((abs demand-pasture) * ha-pasture-per-cattle)
+        let sustainied-cattle-meadow floor ((abs demand-meadow) * ha-pasture-per-cattle)
+
+        let max-sustained-cattle-surplus min (list (sustainied-cattle-pasture) (sustainied-cattle-meadow))
+
+        ;; Table 4.6. Annual meat yield (kg) per slaughtered young, immature and adult sheep or cow; annual milk yield (l) per
+        ;; lactating adult sheep or cow; annual manure yield (kg) per young, immature and adult cow. See appendix 3 for sources
+        ;; of assumptions.
+        set surplus-meat max-sustained-cattle-surplus * 120
+      ]
+
+      let surplus-wheat-liters (surplus-wheat * wheat-kg-to-liter)
+
+      ;; https://imperiumromanum.pl/en/roman-economy/roman-goods-prices/
+      ;; Wheat – 100 denarii for about 17 liters
+      ;; Beef – 8 denarii for about 300 g
+      let beef-price-per-kg (8 / 300) * 1000
+
+      show (word "surplus wheat KG: " surplus-wheat " wheat profit sestertii: " (floor (surplus-wheat * wheat-kg-to-sestertii)) "HS surplus meat KG: " surplus-meat " meat profit sestertii: " (floor (surplus-meat * beef-kg-to-sestertii)) "HS")
+    ]
+
+    stop
+  ]
 
   ask settlements [
       ; Find all unclaimed patches within radius
@@ -156,8 +216,8 @@ to go
               set demand-meadow demand-meadow - 1
           ])
 
-        ]
 
+        ]
     ]
   ]
 
