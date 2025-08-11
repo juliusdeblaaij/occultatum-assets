@@ -4,6 +4,7 @@ globals [
  seed-a
  seed-x
  seed-y
+ total-catchment
 ]
 
 patches-own [
@@ -20,7 +21,7 @@ settlements-own[
   demand-pasture
   demand-meadow
   amount-of-people
-  claimed-count ; how many patches this settlement has claimed
+  remaining-catchment
 ]
 
 to rescale-height
@@ -31,7 +32,7 @@ to rescale-height
   let b (-1 - m * height-min)
   ask patches
   [
-    set height (((m * height + b + 0)) + 2) / 2
+    set height ((m * height + b + 0))
   ]
 end
 
@@ -79,28 +80,43 @@ to setup
 
   ask patches [set pcolor (rgb (suitability-arable-farming * 255) (suitability-pasture * 255) (suitability-meadow * 255))]
 
-  repeat 1 [
-    ask one-of patches with [(not any? other turtles-here) and (not any? turtles-on neighbors) and suitability-arable-farming > 0.5] [
+  repeat 10 [
+    ask one-of patches with [(not any? other turtles-here) and (not any? turtles-on neighbors) and (suitability-arable-farming > 0.75)] [
       sprout-settlements 1 [
-       set amount-of-people 2 + random 4
-       set demand-arable-farming 7 * amount-of-people
-       set demand-pasture 10 * amount-of-people
-       set demand-meadow 11 * amount-of-people
+       set amount-of-people 4 + (random 2)
+       set demand-arable-farming 0.7 * amount-of-people
+       set demand-pasture 0.97 * amount-of-people
+       set demand-meadow 1.04 * amount-of-people
+       set remaining-catchment 5 * amount-of-people
        ask patch-here [
           set claimed-by myself
         ]
       ]
     ]
   ]
+end
 
+to-report max-index [#list]
+  let i 0
+  let max-value item 0 #list
+  let max-i 0
+  foreach #list [value ->
+    if value > max-value [
+      set max-value value
+      set max-i i
+    ]
+    set i i + 1
+  ]
+  report max-i
 end
 
 
 to go
-  ask settlements [
 
-    ; Only proceed if there is still demand to satisfy
-    if (demand-arable-farming > 0 or demand-pasture > 0 or demand-meadow > 0)[
+  set total-catchment sum [remaining-catchment] of settlements
+  if total-catchment = 0 [ stop ]
+
+  ask settlements [
       ; Find all unclaimed patches within radius
       let unclaimed-patches patches with [claimed-by = nobody]
 
@@ -108,33 +124,40 @@ to go
       if any? unclaimed-patches [
 
         let closest min-one-of unclaimed-patches [distance myself]
-        let weight-arable-farming [suitability-arable-farming] of closest * demand-arable-farming
-        let weight-pasture [suitability-pasture] of closest * demand-pasture
+        let weight-arable-farming ([suitability-arable-farming] of closest * 3) * demand-arable-farming
+        let weight-pasture ([suitability-pasture] of closest * 2) * demand-pasture
         let weight-meadow [suitability-meadow] of closest * demand-meadow
 
-        if weight-arable-farming >= weight-pasture and weight-arable-farming >= weight-meadow [
-          ask closest [
-            set pcolor red
-            set claimed-by myself
-          ]
-          set demand-arable-farming demand-arable-farming - 1
+        let max-weight-index max-index (list weight-arable-farming weight-pasture weight-meadow)
+
+        set remaining-catchment (amount-of-people * 5) - count patches with [claimed-by = myself]
+
+        if remaining-catchment > 0 [
+
+            (ifelse max-weight-index = 0 [
+            ask closest [
+              set pcolor red
+              set claimed-by myself
+            ]
+            set demand-arable-farming demand-arable-farming - 1
+            ]
+            max-weight-index = 1 [
+              ask closest [
+                set pcolor green
+                set claimed-by myself
+              ]
+              set demand-pasture demand-pasture - 1
+            ]
+            max-weight-index = 2  [
+              ask closest [
+                set pcolor blue
+                set claimed-by myself
+              ]
+              set demand-meadow demand-meadow - 1
+          ])
+
         ]
-        if weight-pasture >= weight-arable-farming and weight-pasture >= weight-meadow [
-          ask closest [
-            set pcolor green
-            set claimed-by myself
-          ]
-          set demand-pasture demand-pasture - 1
-        ]
-        if weight-meadow >= weight-arable-farming and weight-meadow >= weight-pasture [
-          ask closest [
-            set pcolor blue
-            set claimed-by myself
-          ]
-          set demand-meadow demand-meadow - 1
-        ]
-        ; You can extend this to pasture/meadow as needed
-      ]
+
     ]
   ]
 
@@ -201,8 +224,8 @@ GRAPHICS-WINDOW
 50
 -50
 50
-1
-1
+0
+0
 1
 ticks
 30.0
@@ -231,7 +254,7 @@ BUTTON
 156
 NIL
 go
-NIL
+T
 1
 T
 OBSERVER
@@ -250,14 +273,18 @@ plot 1
 ticks
 demand arable
 0.0
-10990.0
+50.0
 0.0
-100.0
+50.0
 true
 false
 "" ""
 PENS
-"default" 1.0 0 -2674135 true "" "plot count settlements"
+"demand-arable" 1.0 0 -2674135 true "" "plot sum [demand-arable-farming] of settlements"
+"demand-pasture" 1.0 0 -14439633 true "" "plot sum [demand-pasture] of settlements"
+"demand-meadow" 1.0 0 -13345367 true "" "plot sum [demand-meadow] of settlements"
+"catchment" 1.0 0 -817084 true "" "plot sum [remaining-catchment] of settlements"
+"zero" 1.0 0 -7500403 true "" "plot 0"
 
 @#$#@#$#@
 ## WHAT IS IT?
