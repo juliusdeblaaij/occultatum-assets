@@ -156,6 +156,9 @@ to go
         let sustainied-cattle-pasture floor ((abs demand-pasture) * ha-pasture-per-cattle)
         let sustainied-cattle-meadow floor ((abs demand-meadow) * ha-pasture-per-cattle)
 
+        set demand-pasture demand-pasture + ha-pasture-per-cattle * sustainied-cattle-pasture
+        set demand-meadow demand-meadow + ha-meadow-per-cattle * sustainied-cattle-meadow
+
         let max-sustained-cattle-surplus min (list (sustainied-cattle-pasture) (sustainied-cattle-meadow))
 
         ;; Table 4.6. Annual meat yield (kg) per slaughtered young, immature and adult sheep or cow; annual milk yield (l) per
@@ -172,17 +175,18 @@ to go
 
       let wheat-revenue (floor (surplus-wheat * wheat-kg-to-sestertii))
       let beef-revenue (floor (surplus-meat * beef-kg-to-sestertii))
+      let barley-revenue (demand-meadow * 800) * barley-kg-to-sestertii ;; assuming 800kg of barley comes from 1ha of meadow
 
       ;;show (word "surplus wheat KG: " surplus-wheat " wheat profit sestertii: " wheat-revenue "HS surplus meat KG: " surplus-meat " meat profit sestertii: " beef-revenue "HS")
 
-      let revenue wheat-revenue + beef-revenue
+      let revenue wheat-revenue + beef-revenue + barley-revenue
 
       show (word "revenue: " revenue "HS")
 
       let wheat-expenses 0
       if demand-arable-farming > 0 [
        let required-kg-wheat demand-arable-farming * 800
-        set wheat-expenses required-kg-wheat * wheat-kg-to-sestertii
+        set wheat-expenses floor (required-kg-wheat * wheat-kg-to-sestertii)
       ]
 
       let beef-expenses 0
@@ -197,7 +201,7 @@ to go
         ;; of assumptions.
         let beef-shortage-kg max-cattle-shortage * 120
 
-        set beef-expenses beef-shortage-kg * beef-kg-to-sestertii
+        set beef-expenses floor (beef-shortage-kg * beef-kg-to-sestertii)
       ]
 
       let expenses wheat-expenses + beef-expenses
@@ -206,6 +210,7 @@ to go
       show (word "Total revenue: " revenue "HS"
         " wheat revenue " wheat-revenue "HS"
         " beef revenue: " beef-revenue "HS"
+        " barley revenue" barley-revenue
         " wheat expenses: " wheat-expenses "HS"
         " beef expenses: " beef-expenses "HS"
         " expenses: " expenses "HS"
@@ -223,8 +228,8 @@ to go
       if any? unclaimed-patches [
 
         let closest min-one-of unclaimed-patches [distance myself]
-        let weight-arable-farming ([suitability-arable-farming] of closest * 3) * demand-arable-farming
-        let weight-pasture ([suitability-pasture] of closest * 2) * demand-pasture
+        let weight-arable-farming ([suitability-arable-farming] of closest) * demand-arable-farming
+        let weight-pasture ([suitability-pasture] of closest) * demand-pasture
         let weight-meadow [suitability-meadow] of closest * demand-meadow
 
         let max-weight-index max-index (list weight-arable-farming weight-pasture weight-meadow)
