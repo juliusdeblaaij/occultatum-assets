@@ -23,6 +23,7 @@ in
     clang
     netlogo
     xorg.libX11
+    scipopt-scip
     openjdk
   ] ++ nativeBuildInputs;
 
