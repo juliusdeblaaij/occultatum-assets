@@ -34,7 +34,7 @@ The optimization should determine whether the cereal yield exceeds the workers' 
 """
 
 # Parameters
-N = 3  # number of workers (example value, can be changed)
+N = 4  # number of workers (example value, can be changed)
 cereal_consumption_per_worker = 175  # Liters/year
 milk_consumption_per_worker = 130  # Liters/year
 meat_consumption_per_worker = 72  # kg/year
@@ -138,14 +138,59 @@ model.total_land_limit = pyomo.Constraint(
          model.hectares_ploughed <= A
 )
 
-# Objective: maximize utility (use harvested area for income)
-# For simplicity, assume Z = expected income = cereal_yield_per_hectare * hectares * price_per_liter
-# Assume price_per_liter = 1 (can be parameterized), Sigma(I) = 0 for deterministic example
+# Exchange rates (dennarius per KG/liter)
+wheat_price_per_kg = 23
+barley_price_per_liter = 14
+beef_price_per_kg = 106
+sheep_milk_price_per_liter = 8
+
+# Sheep yields (MILK strategy)
+# Format: (meat_kg, milk_liters)
+yield_young_meat = 3
+yield_immature_meat = 5.625
+yield_adult_meat = 7.5
+
+yield_immature_milk = 0
+yield_young_milk = 0
+yield_adult_milk = 27
+
+# Decision variables for purchased food
+model.meat_purchased = pyomo.Var(domain=pyomo.NonNegativeReals)
+model.milk_purchased = pyomo.Var(domain=pyomo.NonNegativeReals)
+
+# Total farm production (MILK strategy)
+def total_meat_produced_rule(m):
+    return (
+        num_sheep_young * yield_young_meat +
+        num_sheep_immature * yield_immature_meat +
+        num_sheep_adult * yield_adult_meat
+    )
+def total_milk_produced_rule(m):
+    return (
+        num_sheep_young * yield_young_milk +
+        num_sheep_immature * yield_immature_milk +
+        num_sheep_adult * yield_adult_milk
+    )
+
+# Constraints: satisfy meat and milk requirements (can buy unmet amount)
+model.meat_requirement = pyomo.Constraint(
+    expr=total_meat_produced_rule(model) + model.meat_purchased >= N * meat_consumption_per_worker
+)
+model.milk_requirement = pyomo.Constraint(
+    expr=total_milk_produced_rule(model) + model.milk_purchased >= N * milk_consumption_per_worker
+)
+
+# Cost for purchased food
+def purchase_cost_rule(m):
+    return m.meat_purchased * beef_price_per_kg + m.milk_purchased * sheep_milk_price_per_liter
+
+# Objective: maximize profit (income from cereals minus purchase cost)
 price_per_liter = 1
 income = cereal_yield_per_hectare * model.hectares_harvested * price_per_liter
 risk_term = risk_aversion * 0  # set to zero for now
+purchase_cost = purchase_cost_rule(model)
 
-model.obj = pyomo.Objective(expr=income - risk_term, sense=pyomo.maximize)
+model.obj = pyomo.Objective(expr=income - purchase_cost - risk_term, sense=pyomo.maximize)
 
 def solve_model():
     solver = pyomo.SolverFactory('scip')
@@ -156,7 +201,16 @@ def solve_model():
         print(f"Optimal hectares ploughed: {model.hectares_ploughed.value}")
         print(f"Optimal hectares sown: {model.hectares_sown.value}")
         print(f"Optimal hectares harvested: {model.hectares_harvested.value}")
+        # Debug meat requirement and production
+        total_meat_required = N * meat_consumption_per_worker
+        total_meat_produced = total_meat_produced_rule(model)
+        total_meat_purchased = model.meat_purchased.value
+        print(f"Meat required: {total_meat_required}")
+        print(f"Meat produced: {total_meat_produced}")
+        print(f"Meat purchased: {total_meat_purchased}")
+        print(f"Milk pruchased: {model.milk_purchased.value}")
         print(f"Objective: {model.obj.expr()}")
+        print(f"Objective (adj. for inflation): {model.obj.expr() / 68.0}")
     else:
         print("No optimal solution found.")
 
