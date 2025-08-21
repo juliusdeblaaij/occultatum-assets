@@ -26,8 +26,6 @@ Cereal production labor requirements (per hectare):
 - Sowing: 3 hours
 - Harvest: 24 hours
 
-For now, ignore meat and dairy needs.
-
 Key constraint:
 - The total cereal yield must be at least the total cereal consumption required by all workers (N * 175 Liters).
 - The total labor required for cereal production (ploughing + sowing + harvest per hectare * number of hectares) must not exceed the total available worker hours (N * 4380).
@@ -38,7 +36,9 @@ The optimization should determine whether the cereal yield exceeds the workers' 
 # Parameters
 N = 3  # number of workers (example value, can be changed)
 cereal_consumption_per_worker = 175  # Liters/year
-worker_hours_per_year = 4380  # hours/year
+milk_consumption_per_worker = 130  # Liters/year
+meat_consumption_per_worker = 72  # kg/year
+worker_hours_per_year = 4380  # hours/year  
 
 ploughing_hours_per_hectare = 30
 sowing_hours_per_hectare = 3
@@ -98,6 +98,45 @@ model.labor_constraint = pyomo.Constraint(rule=labor_constraint_rule)
 model.area_ploughed_limit = pyomo.Constraint(expr=model.hectares_ploughed <= A)
 model.area_sown_limit = pyomo.Constraint(expr=model.hectares_sown <= A)
 model.area_harvested_limit = pyomo.Constraint(expr=model.hectares_harvested <= A)
+
+# Sheep age categories and numbers
+num_sheep_young = 9
+num_sheep_immature = 6
+num_sheep_adult = 24
+
+# Land requirements per sheep (hectares)
+pasture_req_young = 0.017
+meadow_req_young = 0.0126
+pasture_req_immature = 0.089
+meadow_req_immature = 0.0672
+pasture_req_adult = 0.111
+meadow_req_adult = 0.084
+
+# Decision variables for total pasture and meadow allocated
+model.pasture_allocated = pyomo.Var(domain=pyomo.NonNegativeReals)
+model.meadow_allocated = pyomo.Var(domain=pyomo.NonNegativeReals)
+
+# Constraints: total pasture/meadow allocated ≥ sum of requirements for all sheep
+model.pasture_requirement = pyomo.Constraint(
+    expr=model.pasture_allocated >= (
+        num_sheep_young * pasture_req_young +
+        num_sheep_immature * pasture_req_immature +
+        num_sheep_adult * pasture_req_adult
+    )
+)
+model.meadow_requirement = pyomo.Constraint(
+    expr=model.meadow_allocated >= (
+        num_sheep_young * meadow_req_young +
+        num_sheep_immature * meadow_req_immature +
+        num_sheep_adult * meadow_req_adult
+    )
+)
+
+# Area constraints: pasture + meadow + arable ≤ catchment area
+model.total_land_limit = pyomo.Constraint(
+    expr=model.pasture_allocated + model.meadow_allocated +
+         model.hectares_ploughed <= A
+)
 
 # Objective: maximize utility (use harvested area for income)
 # For simplicity, assume Z = expected income = cereal_yield_per_hectare * hectares * price_per_liter
