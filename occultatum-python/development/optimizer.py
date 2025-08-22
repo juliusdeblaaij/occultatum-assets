@@ -35,6 +35,7 @@ The optimization should determine whether the cereal yield exceeds the workers' 
 
 # Parameters
 N = 4  # number of workers (example value, can be changed)
+A = 25  # catchment area in hectares (hard limit)
 cereal_consumption_per_worker = 175  # Liters/year
 milk_consumption_per_worker = 130  # Liters/year
 meat_consumption_per_worker = 72  # kg/year
@@ -44,10 +45,9 @@ ploughing_hours_per_hectare = 30
 sowing_hours_per_hectare = 3
 harvest_hours_per_hectare = 24
 
-cereal_yield_per_hectare = 1000  # Liters/hectare/year (example value, adjust as needed)
+cereal_yield_per_hectare = 1000 * 0.123 # Liters/hectare/year (example value, adjust as needed)
 risk_aversion = 1.0  # example value, can be changed
 
-A = 25  # catchment area in hectares (hard limit)
 
 # Decision variable: number of hectares to cultivate
 model.hectares = pyomo.Var(domain=pyomo.NonNegativeReals)
@@ -156,6 +156,7 @@ yield_adult_milk = 27
 
 # Decision variables for purchased food
 model.meat_purchased = pyomo.Var(domain=pyomo.NonNegativeReals)
+model.wheat_purchased = pyomo.Var(domain=pyomo.NonNegativeReals)
 model.milk_purchased = pyomo.Var(domain=pyomo.NonNegativeReals)
 
 # Total farm production (MILK strategy)
@@ -180,9 +181,18 @@ model.milk_requirement = pyomo.Constraint(
     expr=total_milk_produced_rule(model) + model.milk_purchased >= N * milk_consumption_per_worker
 )
 
-# Cost for purchased food
+# Cereal (wheat) requirement constraint: produced + purchased >= required
+model.cereal_requirement_constraint = pyomo.Constraint(
+    expr=model.hectares_harvested * cereal_yield_per_hectare + model.wheat_purchased >= N * cereal_consumption_per_worker
+)
+
+# Cost for purchased food (including wheat/cereal)
 def purchase_cost_rule(m):
-    return m.meat_purchased * beef_price_per_kg + m.milk_purchased * sheep_milk_price_per_liter
+    return (
+        m.meat_purchased * beef_price_per_kg +
+        m.milk_purchased * sheep_milk_price_per_liter +
+        m.wheat_purchased * wheat_price_per_kg
+    )
 
 # Objective: maximize profit (income from cereals minus purchase cost)
 price_per_liter = 1
@@ -205,8 +215,15 @@ def solve_model():
         total_meat_required = N * meat_consumption_per_worker
         total_meat_produced = total_meat_produced_rule(model)
         total_meat_purchased = model.meat_purchased.value
+        total_wheat_required = N * cereal_consumption_per_worker
+        total_wheat_produced = model.hectares_harvested.value * cereal_yield_per_hectare
+        total_wheat_purchased = model.wheat_purchased.value
+
         print(f"Meat required: {total_meat_required}")
         print(f"Meat produced: {total_meat_produced}")
+        print(f"Wheat required: {total_wheat_required}")
+        print(f"Wheat produced: {total_wheat_produced}")
+        print(f"Wheat purchased: {total_wheat_purchased}")
         print(f"Meat purchased: {total_meat_purchased}")
         print(f"Milk pruchased: {model.milk_purchased.value}")
         print(f"Objective: {model.obj.expr()}")
